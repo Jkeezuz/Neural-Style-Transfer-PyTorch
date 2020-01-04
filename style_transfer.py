@@ -17,7 +17,7 @@ from Layers.ContentLayer import ContentLayer
 from Layers.StyleLayer import StyleLayer
 
 # -- CONSTANTS --
-imsize = (600, 600)
+imsize = (300, 300)
 device = 'cuda'
 RESULTS_PATH = "images/results/"
 IMAGES_PATH = "images/"
@@ -258,8 +258,8 @@ if __name__ == '__main__':
     std = [0.229, 0.224, 0.225]
 
     # Load the images as preprocessed tensors
-    content_name = "bialowieska"
-    style_name = "forest_style"
+    content_name = "sydopera1"
+    style_name = "vcm"
     content_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(content_name))
     style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(style_name))
 
