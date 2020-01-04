@@ -12,13 +12,15 @@ import torch
 import pprint
 import copy
 
-from NormalizeLayer import NormalizeLayer
-from ContentLayer import ContentLayer
-from StyleLayer import StyleLayer
+from Layers.NormalizeLayer import NormalizeLayer
+from Layers.ContentLayer import ContentLayer
+from Layers.StyleLayer import StyleLayer
 
 # -- CONSTANTS --
-imsize = (300,300)
+imsize = (600, 600)
 device = 'cuda'
+RESULTS_PATH = "images/results/"
+IMAGES_PATH = "images/"
 
 # -- UTILITY FUNCTIONS --
 
@@ -42,13 +44,8 @@ def image_loader(image_name):
     return image.to(device, torch.float)
 
 
-def show_tensor(tensor, title=None):
-    """
-    Helper function to convert the pytorch tensor back to displayable format.
-    """
-    # Turn on the interactive mode of plt
-    plt.ion()
-    plt.figure()
+def to_image(tensor):
+    """Converts tensor to PIL image"""
     # Converts to PIL image
     unloader = transforms.ToPILImage()
     # Clone the tensor to CPU
@@ -57,10 +54,32 @@ def show_tensor(tensor, title=None):
     image = image.squeeze(0)
     # Convert to PIL image
     image = unloader(image)
+    return image
+
+
+def show_tensor(tensor, title=None):
+    """
+    Helper function to convert the pytorch tensor back to displayable format.
+    """
+    # Turn on the interactive mode of plt
+    plt.ion()
+    plt.figure()
+
+    image = to_image(tensor)
+
     plt.imshow(image)
     if title is not None:
       plt.title(title)
     plt.pause(0.001)
+
+
+def save_tensor(tensor, title="NONAME"):
+    """
+    Helper function to save pytorch tensor as jpg image.
+    """
+    image = to_image(tensor)
+
+    image.save(RESULTS_PATH+"{}.jpg".format(title))
 
 # Now to properly implement the style transfer we need to:
 # 1. Define the custom content layer that will allow us to compute content loss (ContentLayer.py)
@@ -162,7 +181,7 @@ def get_optimizer(input_image):
 
 # 6. Write training function
 def style_transfer(nn_model, content_image, style_image, input_image, normalize_mean, normalize_std,
-                   content_layers_req, style_layers_req, num_steps=300, style_weight=100000, content_weight=1):
+                   content_layers_req, style_layers_req, num_steps=500, style_weight=100000, content_weight=1):
     """Runs the style transfer on input image"""
     # Get the rebuilded model and style and content layers
     model, content_layers, style_layers = rebuild_model(nn_model, content_image, style_image, normalize_mean,
@@ -218,9 +237,6 @@ def style_transfer(nn_model, content_image, style_image, input_image, normalize_
 if __name__ == '__main__':
     # We want to use GPU for this computationally expensive task
     assert torch.cuda.is_available()
-    device = 'cuda'
-
-    imsize = (300, 300)
 
     pp = pprint.PrettyPrinter(indent=4)
 
@@ -242,14 +258,19 @@ if __name__ == '__main__':
     std = [0.229, 0.224, 0.225]
 
     # Load the images as preprocessed tensors
-    content_tensor = image_loader("louvre.jpg")
-    style_tensor = image_loader("monet.jpg")
+    content_name = "bialowieska"
+    style_name = "forest_style"
+    content_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(content_name))
+    style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(style_name))
 
     # Assert that they're same size
     assert content_tensor.size() == style_tensor.size()
+
     show_tensor(content_tensor, "Content")
+    save_tensor(content_tensor, content_name)
 
     show_tensor(style_tensor, "Style")
+    save_tensor(style_tensor, style_name)
 
     input_tensor = content_tensor.clone()
 
@@ -257,3 +278,4 @@ if __name__ == '__main__':
                             mean, std, content_layers_req, style_layers_req)
 
     show_tensor(output, title="output")
+    save_tensor(output, "C-"+content_name+"S-"+style_name)
