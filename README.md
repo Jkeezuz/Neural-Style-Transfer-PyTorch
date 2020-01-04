@@ -4,6 +4,9 @@ A PyTorch implementation of "A Neural Algorithm of Artistic Style" paper by Gaty
 Project based on original paper, Pytorch's Neural Style Transfer tutorial and Coursera's Deep Learning Specialization 
 CNN course section about Neural Style Transfer.
 
+## TODO:
+## 1. Implement early stopping 
+## 2. Implement gif generation to visualize how input image changes through training
 
 # Examples
 Some images were resized to 300x300 due to computational power restrictions.
