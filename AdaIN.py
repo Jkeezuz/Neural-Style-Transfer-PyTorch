@@ -1,5 +1,6 @@
 import torchvision.models as models
 import copy
+import pprint
 
 
 import torch
@@ -11,14 +12,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 normalize_mean = [0.485, 0.456, 0.406]
 normalize_std = [0.229, 0.224, 0.225]
 
-
-def rebuild_model(vgg, mean, std, depth):
-
-
 class AdaIN(object):
 
-    def __init__(self):
-        self.encoder = self.build_encoder()
+    def __init__(self, depth):
+        self.encoder = self.build_encoder(depth)
         self.adain = self.build_adain()
         self.decoder = self.build_decoder()
 
@@ -46,6 +43,9 @@ class AdaIN(object):
             # Check which instance this layer is to name it appropiately
             if isinstance(layer, nn.Conv2d):
                 i += 1
+                # Stop when we reach required depth
+                if i > depth:
+                    break
                 name = "Conv2d_{}".format(i)
             if isinstance(layer, nn.ReLU):
                 name = "ReLu_{}".format(i)
@@ -56,13 +56,6 @@ class AdaIN(object):
             # Add it to our model
             model.add_module(name, layer)
 
-            # Stop when we reach required depth
-            if i > depth:
-                break
-
-        # We don't need any layers after the "depth" layer
-        model = model[:(depth + 1)]
-
         return model
 
     def build_adain(self):
@@ -70,3 +63,12 @@ class AdaIN(object):
 
     def build_decoder(self):
         pass
+
+
+# test
+if __name__ == "__main__":
+
+    adain = AdaIN(5)
+
+    pprint.pprint(adain.encoder)
+
