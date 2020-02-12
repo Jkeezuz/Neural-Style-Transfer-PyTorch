@@ -18,7 +18,7 @@ from Layers.StyleLayer import StyleLayer
 
 # -- CONSTANTS --
 imsize = (300, 300)
-device = 'cuda'
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 RESULTS_PATH = "images/results/"
 IMAGES_PATH = "images/"
 
@@ -170,6 +170,8 @@ def rebuild_model(nn_model, content_image, style_image,
             break
     model = model[:(i + 1)]
 
+    pprint.pprint(model)
+
     return model, content_layers, style_layers
 
 
@@ -188,7 +190,7 @@ def style_transfer(nn_model, content_image, style_image, input_image, normalize_
                                                         normalize_std, content_layers_req, style_layers_req)
     # Get the LBFGS optimizer
     model.eval()
-    input_image = input_image.cuda()
+    input_image = input_image.to(device)
     lbfgs = get_optimizer(input_image)
     # Run the optimizer for num_steps
     run = [0]

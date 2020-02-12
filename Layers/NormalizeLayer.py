@@ -6,6 +6,7 @@
 import torch.nn as nn
 import torch
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class NormalizeLayer(nn.Module):
     """
@@ -16,8 +17,8 @@ class NormalizeLayer(nn.Module):
     def __init__(self, mean, std):
         super(NormalizeLayer, self).__init__()
         # Reshape the mean and std to [C, 1, 1] to work with pytorch tensors of shape [N, C, H, W]
-        self.mean = torch.tensor(mean).view(-1, 1, 1).cuda()
-        self.std = torch.tensor(std).view(-1, 1, 1).cuda()
+        self.mean = torch.tensor(mean).view(-1, 1, 1).to(device)
+        self.std = torch.tensor(std).view(-1, 1, 1).to(device)
 
     def forward(self, image):
         # Normalize the image
