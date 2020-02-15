@@ -66,6 +66,28 @@ class AdaIN(object):
 
     def build_decoder(self, depth):
         """Decoder mirrors the encoder architecture"""
+        # TODO: FOR NOW WE ASSUME DEPTH = 4
+
+        model = nn.Sequential().train()
+
+        # Send model to CUDA or CPU
+        model = model.to(device)
+
+        # Build decoder for depth = 4
+        model.add_module("ReLU_1", nn.ReLU())
+        model.add_module("ConvTranspose2d_1", nn.ConvTranspose2d(128, 128, (3, 3), (1, 1), (1, 1)))
+
+        model.add_module("ReLU_2", nn.ReLU())
+        model.add_module("ConvTranspose2d_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
+        model.add_module("MaxUnpool2d_2", nn.MaxUnpool2d(kernel_size=2, stride=2))
+
+        model.add_module("ReLU_3", nn.ReLU())
+        model.add_module("ConvTranspose2d_3", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
+
+        model.add_module("ReLU_4", nn.ReLU())
+        model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
+
+        return model
 
 
 # test
@@ -74,4 +96,5 @@ if __name__ == "__main__":
     adain = AdaIN(4)
 
     pprint.pprint(adain.encoder)
+    pprint.pprint(adain.decoder)
 
