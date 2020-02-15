@@ -17,7 +17,6 @@ class AdaIN(object):
 
     def __init__(self, depth):
         self.encoder = self.build_encoder(depth)
-        self.adain = self.build_adain()
         self.decoder = self.build_decoder(depth)
 
     def build_encoder(self, depth):
@@ -61,9 +60,6 @@ class AdaIN(object):
 
         return model
 
-    def build_adain(self):
-        pass
-
     def build_decoder(self, depth):
         """Decoder mirrors the encoder architecture"""
         # TODO: FOR NOW WE ASSUME DEPTH = 4
@@ -88,6 +84,19 @@ class AdaIN(object):
         model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
 
         return model
+
+    def adain(self, content_features, style_features):
+        """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
+        # Compute std of content_features
+        content_std = content_features.std
+        # Compute mean of content_features
+        content_mean = content_features.mean
+        # Compute std of style_features
+        style_std = style_features.std
+        # Compute mean of style_features
+        style_mean = style_features.mean
+
+        return style_std * ((content_features - content_mean)/content_std) + style_mean
 
 
 # test
