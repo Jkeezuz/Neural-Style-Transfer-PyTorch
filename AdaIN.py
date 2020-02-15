@@ -12,12 +12,13 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 normalize_mean = [0.485, 0.456, 0.406]
 normalize_std = [0.229, 0.224, 0.225]
 
+
 class AdaIN(object):
 
     def __init__(self, depth):
         self.encoder = self.build_encoder(depth)
         self.adain = self.build_adain()
-        self.decoder = self.build_decoder()
+        self.decoder = self.build_decoder(depth)
 
     def build_encoder(self, depth):
         """Builds an encoder that uses first "depth" numbers of convolutional layers of VGG19"""
@@ -51,6 +52,8 @@ class AdaIN(object):
                 name = "ReLu_{}".format(i)
                 layer = nn.ReLU(inplace=False)
             if isinstance(layer, nn.MaxPool2d):
+                if i >= depth:
+                    break
                 name = "MaxPool2d_{}".format(i)
             # Layer has now numerated name so we can find it easily
             # Add it to our model
@@ -61,14 +64,14 @@ class AdaIN(object):
     def build_adain(self):
         pass
 
-    def build_decoder(self):
-        pass
+    def build_decoder(self, depth):
+        """Decoder mirrors the encoder architecture"""
 
 
 # test
 if __name__ == "__main__":
 
-    adain = AdaIN(5)
+    adain = AdaIN(4)
 
     pprint.pprint(adain.encoder)
 
