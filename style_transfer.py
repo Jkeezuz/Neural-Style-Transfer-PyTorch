@@ -49,7 +49,7 @@ def to_image(tensor):
     # Converts to PIL image
     unloader = transforms.ToPILImage()
     # Clone the tensor to CPU
-    image = tensor.cpu().clone()
+    image = tensor.to(device).clone()
     # Remove fake batch dimension
     image = image.squeeze(0)
     # Convert to PIL image

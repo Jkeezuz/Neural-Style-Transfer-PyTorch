@@ -1,7 +1,8 @@
 import torchvision.models as models
 import copy
 import pprint
-
+# TODO: DELETE THIS LATER!!
+from style_transfer import *
 
 import torch
 import torch.nn as nn
@@ -66,16 +67,13 @@ class AdaIN(object):
 
         model = nn.Sequential().train()
 
-        # Send model to CUDA or CPU
-        model = model.to(device)
-
         # Build decoder for depth = 4
-        model.add_module("ReLU_1", nn.ReLU())
+        #model.add_module("ReLU_1", nn.ReLU())
         model.add_module("ConvTranspose2d_1", nn.ConvTranspose2d(128, 128, (3, 3), (1, 1), (1, 1)))
 
         model.add_module("ReLU_2", nn.ReLU())
         model.add_module("ConvTranspose2d_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
-        model.add_module("MaxUnpool2d_2", nn.MaxUnpool2d(kernel_size=2, stride=2))
+        model.add_module("Upsample_2", nn.Upsample(scale_factor=2))
 
         model.add_module("ReLU_3", nn.ReLU())
         model.add_module("ConvTranspose2d_3", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
@@ -83,27 +81,66 @@ class AdaIN(object):
         model.add_module("ReLU_4", nn.ReLU())
         model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
 
-        return model
+        # Send model to CUDA or CPU
+        return model.to(device)
 
-    def adain(self, content_features, style_features):
+    def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
         # Compute std of content_features
-        content_std = content_features.std
+        content_std = torch.std(content_features, [1, 2], keepdim=True)
         # Compute mean of content_features
-        content_mean = content_features.mean
+        content_mean = torch.mean(content_features, [1, 2], keepdim=True)
         # Compute std of style_features
-        style_std = style_features.std
+        style_std = torch.std(style_features, [1, 2], keepdim=True)
         # Compute mean of style_features
-        style_mean = style_features.mean
+        style_mean = torch.mean(style_features, [1, 2], keepdim=True)
 
         return style_std * ((content_features - content_mean)/content_std) + style_mean
 
+    def forward(self, style_image, content_image):
+        # Encode style and content image
+        style_features = self.encoder(style_image)
+        content_features = self.encoder(content_image)
 
-# test
+        # Compute AdaIN
+        adain_result = self.adain(style_features, content_features)
+
+        # Decode to image
+        image_result = self.decoder(adain_result)
+
+        # return image and adain result
+        return image_result, adain_result
+
+
 if __name__ == "__main__":
 
     adain = AdaIN(4)
 
     pprint.pprint(adain.encoder)
     pprint.pprint(adain.decoder)
+
+    # Check forward method
+
+    # Load the images as preprocessed tensors
+    content_name = "sydopera1"
+    style_name = "vcm"
+    content_tensor = image_loader(IMAGES_PATH + "{}.jpg".format(content_name))
+    style_tensor = image_loader(IMAGES_PATH + "{}.jpg".format(style_name))
+
+    # Assert that they're same size
+    assert content_tensor.size() == style_tensor.size()
+
+    show_tensor(content_tensor, "Content")
+    save_tensor(content_tensor, content_name)
+
+    show_tensor(style_tensor, "Style")
+    save_tensor(style_tensor, style_name)
+
+    input_tensor = content_tensor.clone()
+
+    output = adain.forward(style_tensor, content_tensor)
+
+    show_tensor(output, title="output")
+    save_tensor(output, "C-" + content_name + "S-" + style_name)
+
 
