@@ -6,6 +6,7 @@ from style_transfer import *
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from Layers.NormalizeLayer import NormalizeLayer
 
@@ -17,6 +18,7 @@ normalize_std = [0.229, 0.224, 0.225]
 class AdaIN(object):
 
     def __init__(self, depth):
+        self.style_layers = []
         self.encoder = self.build_encoder(depth)
         self.decoder = self.build_decoder(depth)
 
@@ -111,6 +113,17 @@ class AdaIN(object):
         # return image and adain result
         return image_result, adain_result
 
+    def compute_loss(self, decoded_image, style_encoded, adain_result):
+        gen_encoding = self.encoder(decoded_image)
+
+        # Content loss, L2 norm
+        content_loss = torch.dist(adain_result, gen_encoding)
+
+        # Style loss
+
+
+
+        return style_loss, content_loss
 
 if __name__ == "__main__":
 
