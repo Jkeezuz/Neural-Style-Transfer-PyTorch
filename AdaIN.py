@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     input_tensor = content_tensor.clone()
 
-    output = adain.forward(style_tensor, content_tensor)
+    output, _ = adain.forward(style_tensor, content_tensor)
 
     show_tensor(output, title="output")
     save_tensor(output, "C-" + content_name + "S-" + style_name)
