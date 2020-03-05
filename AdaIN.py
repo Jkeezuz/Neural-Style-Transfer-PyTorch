@@ -207,8 +207,7 @@ if __name__ == "__main__":
     transformed_dataset = StyleTransferDataset(content_dir, style_dir, transform=transforms.Compose([
                                                transforms.Resize(256),
                                                transforms.RandomCrop(224),
-                                               transforms.ToTensor()
-                                           ]))
+                                               transforms.ToTensor()]))
     dataloader = DataLoader(transformed_dataset, batch_size=4,
                             shuffle=True, num_workers=4)
 
