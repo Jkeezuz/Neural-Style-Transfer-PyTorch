@@ -71,13 +71,13 @@ class AdaIN(object):
                 model.add_module("StyleLayer_{}".format(i), style_layer)
                 self.style_layers.append(style_layer)
 
-        return model
+        return model.eval()
 
     def build_decoder(self, depth):
         """Decoder mirrors the encoder architecture"""
         # TODO: FOR NOW WE ASSUME DEPTH = 4
 
-        model = nn.Sequential().train()
+        model = nn.Sequential().train().to(device)
 
         # Build decoder for depth = 4
         #model.add_module("ReLU_1", nn.ReLU())
@@ -94,7 +94,7 @@ class AdaIN(object):
         model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
 
         # Send model to CUDA or CPU
-        return model.to(device)
+        return model
 
     def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
@@ -137,7 +137,7 @@ class AdaIN(object):
 
         return style_loss, content_loss
 
-    def train(self, dataset, style_weight, epochs):
+    def train(self, dataset, style_weight, epochs, batch_size):
 
         opt = optim.Adam(self.decoder)
 
@@ -154,7 +154,14 @@ class AdaIN(object):
 
                 opt.step()
 
+                # Check network performance every x steps
+                if epoch % 10 == 0:
+                    test, _ = self.forward(style, content)
+                    show_tensor(test, epoch)
 
+
+
+## FOR TEST PURPOSES
 if __name__ == "__main__":
     style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4", "Conv2d_5", "Conv2d_6", "Conv2d_7", "Conv2d_8"]
     style_name = "vcm"
@@ -177,16 +184,14 @@ if __name__ == "__main__":
     assert content_tensor.size() == style_tensor.size()
 
     show_tensor(content_tensor, "Content")
-    save_tensor(content_tensor, content_name)
 
     show_tensor(style_tensor, "Style")
-    save_tensor(style_tensor, style_name)
 
     input_tensor = content_tensor.clone()
 
     output, _ = adain.forward(style_tensor, content_tensor)
 
     show_tensor(output, title="output")
-    save_tensor(output, "C-" + content_name + "S-" + style_name)
 
 
+    adain.train()
