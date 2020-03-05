@@ -145,12 +145,12 @@ class AdaIN(object):
         opt = optim.Adam(self.decoder)
 
         for epoch in range(epochs):
+            for i_batch, sample in enumerate(dataloader):
 
-            for style, content in enumerate(dataloader):
                 opt.zero_grad()
 
-                decoded, adain_res = self.forward(style, content)
-                style_loss, content_loss = self.compute_loss(decoded, style, adain_res)
+                decoded, adain_res = self.forward(sample['style'], sample['content'])
+                style_loss, content_loss = self.compute_loss(decoded, sample['style'], adain_res)
                 total_loss = style_weight*style_loss + content_loss
 
                 total_loss.backward()
@@ -159,13 +159,10 @@ class AdaIN(object):
 
                 # Check network performance every x steps
                 if epoch % 10 == 0:
-                    test, _ = self.forward(style, content)
+                    test, _ = self.forward(sample['style'], sample['content'])
                     show_tensor(test, epoch)
 
-        # Save model after training
-        # Save encoder
-        torch.save(self.encoder.state_dict(), "encoder.pth")
-        # Save decoder
+        # Save decoder after training
         torch.save(self.decoder.state_dict(), "decoder.pth")
 
 
@@ -179,27 +176,6 @@ if __name__ == "__main__":
 
     pprint.pprint(adain.encoder)
     pprint.pprint(adain.decoder)
-
-    # Check forward method
-
-    # Load the images as preprocessed tensors
-    content_name = "sydopera1"
-    style_name = "vcm"
-    content_tensor = image_loader(IMAGES_PATH + "{}.jpg".format(content_name))
-    style_tensor = image_loader(IMAGES_PATH + "{}.jpg".format(style_name))
-
-    # Assert that they're same size
-    assert content_tensor.size() == style_tensor.size()
-
-    show_tensor(content_tensor, "Content")
-
-    show_tensor(style_tensor, "Style")
-
-    input_tensor = content_tensor.clone()
-
-    output, _ = adain.forward(style_tensor, content_tensor)
-
-    show_tensor(output, title="output")
 
     # TRAIN
     content_dir = ""
