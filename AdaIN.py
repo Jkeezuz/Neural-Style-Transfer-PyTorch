@@ -2,6 +2,9 @@ import torchvision.models as models
 import copy
 import pprint
 # TODO: DELETE THIS LATER!!
+from torch.utils.data import DataLoader
+
+from dataprocess.StyleTransferDataset import StyleTransferDataset
 from style_transfer import *
 
 import torch
@@ -137,13 +140,13 @@ class AdaIN(object):
 
         return style_loss, content_loss
 
-    def train(self, dataset, style_weight, epochs, batch_size):
+    def train(self, dataloader, style_weight, epochs):
 
         opt = optim.Adam(self.decoder)
 
-        for epoch in epochs:
+        for epoch in range(epochs):
 
-            for style, content in dataset:
+            for style, content in enumerate(dataloader):
                 opt.zero_grad()
 
                 decoded, adain_res = self.forward(style, content)
@@ -159,6 +162,11 @@ class AdaIN(object):
                     test, _ = self.forward(style, content)
                     show_tensor(test, epoch)
 
+        # Save model after training
+        # Save encoder
+        torch.save(self.encoder.state_dict(), "encoder.pth")
+        # Save decoder
+        torch.save(self.decoder.state_dict(), "decoder.pth")
 
 
 ## FOR TEST PURPOSES
@@ -193,5 +201,15 @@ if __name__ == "__main__":
 
     show_tensor(output, title="output")
 
+    # TRAIN
+    content_dir = ""
+    style_dir = ""
+    transformed_dataset = StyleTransferDataset(content_dir, style_dir, transform=transforms.Compose([
+                                               transforms.Resize(256),
+                                               transforms.RandomCrop(224),
+                                               transforms.ToTensor()
+                                           ]))
+    dataloader = DataLoader(transformed_dataset, batch_size=4,
+                            shuffle=True, num_workers=4)
 
-    adain.train()
+    adain.train(dataloader=dataloader, style_weight=10000, epochs=500)
