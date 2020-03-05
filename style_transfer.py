@@ -1,3 +1,5 @@
+import time
+
 import matplotlib.pyplot as plt
 from PIL import Image
 
@@ -192,6 +194,7 @@ def style_transfer(nn_model, content_image, style_image, input_image, normalize_
     model.eval()
     input_image = input_image.to(device)
     lbfgs = get_optimizer(input_image)
+    style_layers_factor = 1 / len(style_layers_req)
     # Run the optimizer for num_steps
     run = [0]
     while run[0] <= num_steps:
@@ -208,7 +211,7 @@ def style_transfer(nn_model, content_image, style_image, input_image, normalize_
             # Compute the style and content stores
             # based on values computed in style/content layers during forward propagation
             for sl in style_layers:
-                style_score += sl.loss
+                style_score += sl.loss #* style_layers_factor
             for cl in content_layers:
                 content_score += cl.loss
 
@@ -276,8 +279,13 @@ if __name__ == '__main__':
 
     input_tensor = content_tensor.clone()
 
+    start_time = time.time()
+
     output = style_transfer(model, content_tensor, style_tensor, input_tensor,
                             mean, std, content_layers_req, style_layers_req)
 
+    elapsed_time = time.time() - start_time
     show_tensor(output, title="output")
     save_tensor(output, "C-"+content_name+"S-"+style_name)
+
+    print(time.strftime("Elapsed time %Mm:%Ss", time.gmtime(elapsed_time)))

@@ -17,12 +17,12 @@ normalize_std = [0.229, 0.224, 0.225]
 
 class AdaIN(object):
 
-    def __init__(self, depth):
+    def __init__(self, depth, style_req, style_image):
         self.style_layers = []
-        self.encoder = self.build_encoder(depth)
+        self.encoder = self.build_encoder(depth, style_req, style_image)
         self.decoder = self.build_decoder(depth)
 
-    def build_encoder(self, depth):
+    def build_encoder(self, depth, style_req, style_image):
         """Builds an encoder that uses first "depth" numbers of convolutional layers of VGG19"""
         vgg = models.vgg19(pretrained=True).features.to(device)
 
@@ -60,6 +60,16 @@ class AdaIN(object):
             # Layer has now numerated name so we can find it easily
             # Add it to our model
             model.add_module(name, layer)
+
+            # Check for style layers
+            if name in style_req:
+                # Get the style activations in this layer
+                style_activations = model(style_image).detach()
+                # Create the style layer
+                style_layer = StyleLayer(style_activations)
+                # Append it to the module
+                model.add_module("StyleLayer_{}".format(i), style_layer)
+                self.style_layers.append(style_layer)
 
         return model
 
@@ -113,21 +123,44 @@ class AdaIN(object):
         # return image and adain result
         return image_result, adain_result
 
-    def compute_loss(self, decoded_image, style_encoded, adain_result):
+    def compute_loss(self, decoded_image, style_img, adain_result):
         gen_encoding = self.encoder(decoded_image)
 
         # Content loss, L2 norm
         content_loss = torch.dist(adain_result, gen_encoding)
 
         # Style loss
-
-
+        style_loss = 0
+        self.encoder(style_img)
+        for sl in self.style_layers:
+            style_loss += sl.loss
 
         return style_loss, content_loss
 
-if __name__ == "__main__":
+    def train(self, dataset, style_weight, epochs):
 
-    adain = AdaIN(4)
+        opt = optim.Adam(self.decoder)
+
+        for epoch in epochs:
+
+            for style, content in dataset:
+                opt.zero_grad()
+
+                decoded, adain_res = self.forward(style, content)
+                style_loss, content_loss = self.compute_loss(decoded, style, adain_res)
+                total_loss = style_weight*style_loss + content_loss
+
+                total_loss.backward()
+
+                opt.step()
+
+
+if __name__ == "__main__":
+    style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4", "Conv2d_5", "Conv2d_6", "Conv2d_7", "Conv2d_8"]
+    style_name = "vcm"
+    style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(style_name))
+
+    adain = AdaIN(4, style_layers_req, style_tensor)
 
     pprint.pprint(adain.encoder)
     pprint.pprint(adain.decoder)
