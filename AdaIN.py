@@ -78,24 +78,24 @@ class AdaIN(object):
         """Decoder mirrors the encoder architecture"""
         # TODO: FOR NOW WE ASSUME DEPTH = 4
 
-        model = nn.Sequential().train().to(device)
+        model = nn.Sequential().train()
 
         # Build decoder for depth = 4
-        #model.add_module("ReLU_1", nn.ReLU())
         model.add_module("ConvTranspose2d_1", nn.ConvTranspose2d(128, 128, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU_1", nn.ReLU())
 
-        model.add_module("ReLU_2", nn.ReLU())
         model.add_module("ConvTranspose2d_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
         model.add_module("Upsample_2", nn.Upsample(scale_factor=2))
+        model.add_module("ReLU_2", nn.ReLU())
 
-        model.add_module("ReLU_3", nn.ReLU())
         model.add_module("ConvTranspose2d_3", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU_3", nn.ReLU())
 
-        model.add_module("ReLU_4", nn.ReLU())
         model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU_4", nn.ReLU())
 
         # Send model to CUDA or CPU
-        return model
+        return model.to(device)
 
     def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
@@ -140,7 +140,7 @@ class AdaIN(object):
 
     def train(self, dataloader, style_weight, epochs):
 
-        opt = optim.Adam(self.decoder)
+        opt = optim.Adam(self.decoder.parameters())
 
         for epoch in range(epochs):
             for i_batch, sample in enumerate(dataloader):
