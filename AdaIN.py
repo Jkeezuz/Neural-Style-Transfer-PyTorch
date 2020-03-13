@@ -1,22 +1,19 @@
-import torchvision.models as models
-import copy
-import pprint
-# TODO: DELETE THIS LATER!!
-from torch.utils.data import DataLoader
-
-from dataprocess.StyleTransferDataset import StyleTransferDataset
-from style_transfer import *
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torchvision.models as models
+
+import copy
+import torch.optim as optim
 
 from Layers.NormalizeLayer import NormalizeLayer
+from Layers.StyleLayer import StyleLayer
+
+from constants import *
+from utilities import *
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 normalize_mean = [0.485, 0.456, 0.406]
 normalize_std = [0.229, 0.224, 0.225]
-STYLE_PATH = "data/train/style"
 
 
 class AdaIN(object):
@@ -166,40 +163,3 @@ class AdaIN(object):
         # Save decoder after training
         torch.save(self.decoder.state_dict(), "decoder.pth")
 
-
-# DEBUG ONLY
-def rename(directory):
-    import os
-
-    for i, filename in enumerate(sorted(os.listdir(directory))):
-        if filename.endswith(".jpg") or filename.endswith(".png"):
-            ext = os.path.splitext(filename)[1]
-            os.rename(os.path.join(directory, filename), os.path.join(directory, str(i)+ext))
-
-
-## FOR TEST PURPOSES
-if __name__ == "__main__":
-    # DEBUG ONLY
-   # rename(STYLE_PATH)
-    
-    
-    style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4", "Conv2d_5", "Conv2d_6", "Conv2d_7", "Conv2d_8"]
-    style_name = "vcm"
-    style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(style_name))
-
-    adain = AdaIN(4, style_layers_req, style_tensor)
-
-    pprint.pprint(adain.encoder)
-    pprint.pprint(adain.decoder)
-
-    # TRAIN
-    content_dir = ""
-    style_dir = ""
-    transformed_dataset = StyleTransferDataset(content_dir, style_dir, transform=transforms.Compose([
-                                               transforms.Resize(256),
-                                               transforms.RandomCrop(224),
-                                               transforms.ToTensor()]))
-    dataloader = DataLoader(transformed_dataset, batch_size=4,
-                            shuffle=True, num_workers=4)
-
-    adain.train(dataloader=dataloader, style_weight=10000, epochs=500)
