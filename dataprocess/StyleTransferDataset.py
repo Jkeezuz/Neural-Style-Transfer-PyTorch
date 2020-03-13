@@ -1,10 +1,10 @@
-import torch.utils.data.Dataset as Dataset
+import torch.utils.data
+from torch.utils.data import Dataset, DataLoader
 import os, os.path
-import torchvision.datasets as dataset
-import torchvision.transforms as transforms
 import torch
 
 from PIL import Image
+
 
 class StyleTransferDataset(Dataset):
     """ Dataset designed for Style Transfer with AdaIN method """
