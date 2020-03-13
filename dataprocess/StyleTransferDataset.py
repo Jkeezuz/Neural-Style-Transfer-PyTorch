@@ -26,8 +26,8 @@ class StyleTransferDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        content_name = os.path.join(self.content_root_dir, idx+".jpg")
-        style_name = os.path.join(self.style_root_dir, idx+".jpg")
+        content_name = os.path.join(self.content_root_dir, str(idx)+".jpg")
+        style_name = os.path.join(self.style_root_dir, str(idx)+".jpg")
 
         content_image = Image.open(content_name)
         style_image = Image.open(style_name)
