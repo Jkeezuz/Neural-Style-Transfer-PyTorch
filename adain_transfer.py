@@ -22,10 +22,8 @@ if __name__ == "__main__":
     # rename(STYLE_PATH)
     
     style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4", "Conv2d_5", "Conv2d_6", "Conv2d_7", "Conv2d_8"]
-    style_name = "vcm"
-    style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(style_name))
 
-    adain = AdaIN(4, style_layers_req, style_tensor)
+    adain = AdaIN(4, style_layers_req)
 
     pprint.pprint(adain.encoder)
     pprint.pprint(adain.decoder)

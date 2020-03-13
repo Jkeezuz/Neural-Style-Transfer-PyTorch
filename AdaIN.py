@@ -6,7 +6,7 @@ import copy
 import torch.optim as optim
 
 from Layers.NormalizeLayer import NormalizeLayer
-from Layers.StyleLayer import StyleLayer
+from Layers.AdainStyleLayer import AdainStyleLayer
 
 from constants import *
 from utilities import *
@@ -18,12 +18,12 @@ normalize_std = [0.229, 0.224, 0.225]
 
 class AdaIN(object):
 
-    def __init__(self, depth, style_req, style_image):
+    def __init__(self, depth, style_req):
         self.style_layers = []
-        self.encoder = self.build_encoder(depth, style_req, style_image)
+        self.encoder = self.build_encoder(depth, style_req)
         self.decoder = self.build_decoder(depth)
 
-    def build_encoder(self, depth, style_req, style_image):
+    def build_encoder(self, depth, style_req):
         """Builds an encoder that uses first "depth" numbers of convolutional layers of VGG19"""
         vgg = models.vgg19(pretrained=True).features.to(device)
 
@@ -64,10 +64,8 @@ class AdaIN(object):
 
             # Check for style layers
             if name in style_req:
-                # Get the style activations in this layer
-                style_activations = model(style_image).detach()
                 # Create the style layer
-                style_layer = StyleLayer(style_activations)
+                style_layer = AdainStyleLayer()
                 # Append it to the module
                 model.add_module("StyleLayer_{}".format(i), style_layer)
                 self.style_layers.append(style_layer)
@@ -112,8 +110,17 @@ class AdaIN(object):
 
     def forward(self, style_image, content_image):
         # Encode style and content image
-        style_features = self.encoder(style_image)
-        content_features = self.encoder(content_image)
+        # TODO: CHANGE THIS!!!
+        # TODO: RIGHT NOW WE NEED TO ITERATE OVER EVERY STYLE LAYER AND SET ITS MODE, THINK ABOUT SOMETHING MORE ELEGANT
+        for sl in self.style_layers:
+            sl.target = True
+
+        style_features = self.encoder(style_image.to(device))
+
+        for sl in self.style_layers:
+            sl.target = False
+
+        content_features = self.encoder(content_image.to(device))
 
         # Compute AdaIN
         adain_result = self.adain(style_features, content_features)
@@ -124,15 +131,27 @@ class AdaIN(object):
         # return image and adain result
         return image_result, adain_result
 
-    def compute_loss(self, decoded_image, style_img, adain_result):
+    def compute_loss(self, decoded_image, style_image, adain_result):
+
+        # Update target activations in style layers of encoder
+        style_loss = 0
+        # TODO: CHANGE THIS!!!
+        # TODO: RIGHT NOW WE NEED TO ITERATE OVER EVERY STYLE LAYER AND SET ITS MODE, THINK ABOUT SOMETHING MORE ELEGANT
+        for sl in self.style_layers:
+            sl.target = True
+
+        self.encoder(style_image.to(device))
+
+        for sl in self.style_layers:
+            sl.target = False
+
+        # Pass decoded image through encoder, computes style loss automatically
         gen_encoding = self.encoder(decoded_image)
 
         # Content loss, L2 norm
         content_loss = torch.dist(adain_result, gen_encoding)
 
-        # Style loss
-        style_loss = 0
-        self.encoder(style_img)
+        # Style Loss
         for sl in self.style_layers:
             style_loss += sl.loss
 

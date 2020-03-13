@@ -35,11 +35,20 @@ class AdainStyleLayer(nn.Module):
         # Compute the gram matrix of target activations for style image
         self.target_activations = None
         self.loss = 0
+        self.target = False
 
-    def forward(self, generated_activations):
-        # Compute the gram matrix for generated activations
-        G = gram_matrix(generated_activations)
-        # Compute the style loss
-        self.loss = F.mse_loss(G, self.target_activations)
+    def forward(self, activations):
+        # If this is pass for target activations (we're passing style image
+        if self.target:
+            self.target_activations = gram_matrix(activations)
+            self.loss = 0
+        else:
+            if self.target_activations is not None:
+                # We're passing another image, should update loss
+                # Compute the gram matrix for generated activations
+                G = gram_matrix(activations)
+                # Compute the style loss
+                self.loss = F.mse_loss(G, self.target_activations)
+
         # Pass the activations forward in neural network
-        return generated_activations
+        return activations
