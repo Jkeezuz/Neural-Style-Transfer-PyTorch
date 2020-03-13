@@ -16,6 +16,7 @@ from Layers.NormalizeLayer import NormalizeLayer
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 normalize_mean = [0.485, 0.456, 0.406]
 normalize_std = [0.229, 0.224, 0.225]
+STYLE_PATH = "data/train/style"
 
 
 class AdaIN(object):
@@ -166,8 +167,22 @@ class AdaIN(object):
         torch.save(self.decoder.state_dict(), "decoder.pth")
 
 
+# DEBUG ONLY
+def rename(directory):
+    import os
+
+    for i, filename in enumerate(sorted(os.listdir(directory))):
+        if filename.endswith(".jpg") or filename.endswith(".png"):
+            ext = os.path.splitext(filename)[1]
+            os.rename(os.path.join(directory, filename), os.path.join(directory, str(i)+ext))
+
+
 ## FOR TEST PURPOSES
 if __name__ == "__main__":
+    # DEBUG ONLY
+    rename(STYLE_PATH)
+    
+    
     style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4", "Conv2d_5", "Conv2d_6", "Conv2d_7", "Conv2d_8"]
     style_name = "vcm"
     style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(style_name))
