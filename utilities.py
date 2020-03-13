@@ -50,13 +50,26 @@ def show_tensor(tensor, title=None):
     plt.ion()
     plt.figure()
 
-    image = to_image(tensor)
+    sizes = list(tensor.size())
+    if len(sizes) > 3:
+        # Iterate over images
+        for i in range(sizes[0]):
+            image = to_image(tensor[i])
 
-    plt.imshow(image)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)
+            plt.imshow(image)
+            if title is not None:
+                plt.title(title)
 
+            plt.pause(0.001)
+
+    else:
+        image = to_image(tensor)
+
+        plt.imshow(image)
+        if title is not None:
+            plt.title(title)
+
+        plt.pause(0.001)
 
 def save_tensor(tensor, title="NONAME"):
     """
