@@ -80,17 +80,17 @@ class AdaIN(object):
 
         # Build decoder for depth = 4
         model.add_module("ConvTranspose2d_1", nn.ConvTranspose2d(128, 128, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_1", nn.ReLU())
+        model.add_module("ReLU_1", nn.ReLU(True))
 
         model.add_module("ConvTranspose2d_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
         model.add_module("Upsample_2", nn.Upsample(scale_factor=2))
-        model.add_module("ReLU_2", nn.ReLU())
+        model.add_module("ReLU_2", nn.ReLU(True))
 
         model.add_module("ConvTranspose2d_3", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_3", nn.ReLU())
+        model.add_module("ReLU_3", nn.ReLU(True))
 
         model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_4", nn.ReLU())
+        model.add_module("ReLU_4", nn.ReLU(True))
 
         # Send model to CUDA or CPU
         return model.to(device)
@@ -131,7 +131,7 @@ class AdaIN(object):
         # return image and adain result
         return image_result, adain_result
 
-    def compute_loss(self, decoded_image, style_image, adain_result):
+    def compute_loss(self, decoded_image, style_image, adain_result,  style_weight=100000):
 
         # Update target activations in style layers of encoder
         style_loss = 0
@@ -155,7 +155,7 @@ class AdaIN(object):
         for sl in self.style_layers:
             style_loss += sl.loss
 
-        return style_loss, content_loss
+        return style_loss*style_weight, content_loss
 
     def train(self, dataloader, style_weight, epochs):
 
@@ -175,9 +175,13 @@ class AdaIN(object):
                 opt.step()
 
                 # Check network performance every x steps
-                if epoch % 10 == 0:
+                if epoch % 10 == 0 and i_batch == 0:
                     test, _ = self.forward(sample['style'], sample['content'])
                     show_tensor(test, epoch)
+                    print("Epoch {}:".format(epoch))
+                    print('Style Loss : {:4f} Content Loss: {:4f}'.format(
+                        style_loss.item(), content_loss.item()))
+                    print()
 
         # Save decoder after training
         torch.save(self.decoder.state_dict(), "decoder.pth")

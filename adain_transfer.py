@@ -19,7 +19,7 @@ def rename(directory):
 # FOR TEST PURPOSES
 if __name__ == "__main__":
     # DEBUG ONLY
-    # rename(STYLE_PATH)
+    # rename(CONTENT_PATH)
     
     style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4", "Conv2d_5", "Conv2d_6", "Conv2d_7", "Conv2d_8"]
 
