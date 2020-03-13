@@ -32,9 +32,10 @@ class StyleTransferDataset(Dataset):
         content_image = Image.open(content_name)
         style_image = Image.open(style_name)
 
-        sample = {'content': content_image, 'style': style_image}
-
         if self.transform:
-            sample = self.transform(sample)
+            content_image = self.transform(content_image)
+            style_image = self.transform(style_image)
+
+        sample = {'content': content_image, 'style': style_image}
 
         return sample
