@@ -29,7 +29,7 @@ class StyleTransferDataset(Dataset):
         content_name = os.path.join(self.content_root_dir, str(idx)+".jpg")
         style_name = os.path.join(self.style_root_dir, str(idx)+".jpg")
 
-        content_image = Image.open(content_name)
+        content_image = Image.open(content_name).convert('RGB')
         # Turns out that some of the style images are in black/white
         # so we need to convert them to RGB
         style_image = Image.open(style_name).convert('RGB')
