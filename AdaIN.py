@@ -175,7 +175,7 @@ class AdaIN(object):
                 opt.step()
 
                 # Check network performance every x steps
-                if epoch % 10 == 0 and i_batch == 0:
+                if i_batch == 0:
                     test, _ = self.forward(sample['style'], sample['content'])
                     show_tensor(test, epoch)
                     print("Epoch {}:".format(epoch))
