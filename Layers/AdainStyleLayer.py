@@ -40,7 +40,7 @@ class AdainStyleLayer(nn.Module):
     def forward(self, activations):
         # If this is pass for target activations (we're passing style image
         if self.target:
-            self.target_activations = gram_matrix(activations)
+            self.target_activations = gram_matrix(activations).detach()
             self.loss = 0
         else:
             if self.target_activations is not None:
