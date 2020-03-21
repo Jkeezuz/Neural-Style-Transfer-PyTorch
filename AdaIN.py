@@ -133,7 +133,7 @@ class AdaIN(object):
         # return image and adain result
         return image_result, adain_result
 
-    def compute_loss(self, decoded_image, style_image, adain_result,  style_weight=100000):
+    def compute_loss(self, decoded_image, style_image, adain_result):
 
         # Update target activations in style layers of encoder
         style_loss = 0
@@ -147,7 +147,7 @@ class AdaIN(object):
         for sl in self.style_layers:
             sl.target = False
 
-        # Pass decoded image through encoder, computes style loss automatically
+        # Pass decoded image through encoder
         gen_encoding = self.encoder(decoded_image)
 
         # Content loss, L2 norm
@@ -157,7 +157,7 @@ class AdaIN(object):
         for sl in self.style_layers:
             style_loss += sl.loss
 
-        return style_loss*style_weight, content_loss
+        return style_loss, content_loss
 
     def train(self, dataloader, style_weight, epochs):
 
@@ -170,7 +170,7 @@ class AdaIN(object):
 
                 decoded, adain_res = self.forward(sample['style'], sample['content'])
                 style_loss, content_loss = self.compute_loss(decoded, sample['style'], adain_res)
-                total_loss = style_weight*style_loss + content_loss
+                total_loss = style_loss*style_weight + content_loss
 
                 total_loss.backward()
 
