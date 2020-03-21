@@ -38,9 +38,6 @@ class StyleTransferDataset(Dataset):
             content_image = self.transform(content_image)
             style_image = self.transform(style_image)
 
-
-
-
         sample = {'content': content_image, 'style': style_image}
 
         return sample
