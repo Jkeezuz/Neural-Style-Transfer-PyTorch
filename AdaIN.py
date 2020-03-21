@@ -1,3 +1,5 @@
+from time import strftime, gmtime
+
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -178,7 +180,7 @@ class AdaIN(object):
                 if i_batch == 0:
                     test, _ = self.forward(sample['style'], sample['content'])
                     show_tensor(test, epoch)
-                    print("Epoch {}:".format(epoch))
+                    print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss : {:4f} Content Loss: {:4f}'.format(
                         style_loss.item(), content_loss.item()))
                     print()
