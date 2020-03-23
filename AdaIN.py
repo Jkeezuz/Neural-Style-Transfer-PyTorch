@@ -113,9 +113,6 @@ class AdaIN(object):
 
     def forward(self, style_image, content_image):
         # Encode style and content image
-        # TODO: CHANGE THIS!!!
-        # TODO: RIGHT NOW WE NEED TO ITERATE OVER EVERY STYLE LAYER AND SET ITS MODE, THINK ABOUT SOMETHING MORE ELEGANT
-
         style_encoding = self.encoder(style_image.to(device))
         content_encoding = self.encoder(content_image.to(device))
 
