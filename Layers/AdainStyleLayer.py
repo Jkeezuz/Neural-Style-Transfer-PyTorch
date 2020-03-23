@@ -13,15 +13,9 @@ class AdainStyleLayer(nn.Module):
     def __init__(self):
         super(AdainStyleLayer, self).__init__()
         # Compute the gram matrix of target activations for style image
-        self.target_activations = None
-        self.with_loss = False
-        self.loss
+        self.activations = None
 
     def forward(self, activations):
-
-        if self.with_loss:
-            pass
-
-        self.target_activations = activations
+        self.activations = activations.detach()
         # Pass the activations forward in neural network
         return activations
