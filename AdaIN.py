@@ -167,6 +167,9 @@ class AdaIN(object):
 
         opt = optim.Adam(self.decoder.parameters())
 
+        style_losses = np.empty(epochs)
+        content_losses = np.empty(epochs)
+
         for epoch in range(epochs):
             for i_batch, sample in enumerate(dataloader):
 
@@ -185,9 +188,19 @@ class AdaIN(object):
                     test, _ = self.forward(sample['style'], sample['content'])
                     show_tensor(test, epoch)
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
-                    print('Style Loss : {:4f} Content Loss: {:4f}'.format(
-                        style_loss.item(), content_loss.item()))
+                    print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
+                        style_loss.item()*style_weight, content_loss.item()))
                     print()
+
+                    # Plot the loss
+                    style_losses[epoch] = style_loss.item()*style_weight
+                    content_losses[epoch] = content_loss.item()
+                    plt.figure()
+                    plt.plot(range(1, epochs+1), style_losses, label="style loss")
+                    plt.plot(range(1, epochs+1), content_losses, label="content loss")
+                    plt.legend()
+                    plt.savefig('loss.png')
+                    plt.close()
 
         # Save decoder after training
         torch.save(self.decoder.state_dict(), "decoder.pth")
