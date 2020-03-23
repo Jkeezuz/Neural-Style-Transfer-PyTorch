@@ -36,4 +36,4 @@ if __name__ == "__main__":
     dataloader = DataLoader(transformed_dataset, batch_size=4,
                             shuffle=True, num_workers=4)
 
-    adain.train(dataloader=dataloader, style_weight=10000, epochs=500)
+    adain.train(dataloader=dataloader, style_weight=1000, epochs=500)
