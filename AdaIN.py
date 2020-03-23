@@ -167,8 +167,8 @@ class AdaIN(object):
 
         opt = optim.Adam(self.decoder.parameters())
 
-        style_losses = np.empty(epochs)
-        content_losses = np.empty(epochs)
+        style_losses = []
+        content_losses = []
 
         for epoch in range(epochs):
             for i_batch, sample in enumerate(dataloader):
@@ -193,11 +193,11 @@ class AdaIN(object):
                     print()
 
                     # Plot the loss
-                    style_losses[epoch] = style_loss.item()*style_weight
-                    content_losses[epoch] = content_loss.item()
+                    style_losses.append(style_loss.item()*style_weight)
+                    content_losses.append(content_loss.item())
                     plt.figure()
-                    plt.plot(range(1, epochs+1), style_losses, label="style loss")
-                    plt.plot(range(1, epochs+1), content_losses, label="content loss")
+                    plt.plot(range(epoch+1), style_losses, label="style loss")
+                    plt.plot(range(epoch+1), content_losses, label="content loss")
                     plt.legend()
                     plt.savefig('loss.png')
                     plt.close()
