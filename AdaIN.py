@@ -115,18 +115,12 @@ class AdaIN(object):
         # Encode style and content image
         # TODO: CHANGE THIS!!!
         # TODO: RIGHT NOW WE NEED TO ITERATE OVER EVERY STYLE LAYER AND SET ITS MODE, THINK ABOUT SOMETHING MORE ELEGANT
-        for sl in self.style_layers:
-            sl.target = True
 
-        style_features = self.encoder(style_image.to(device))
-
-        for sl in self.style_layers:
-            sl.target = False
-
-        content_features = self.encoder(content_image.to(device))
+        style_encoding = self.encoder(style_image.to(device))
+        content_encoding = self.encoder(content_image.to(device))
 
         # Compute AdaIN
-        adain_result = self.adain(style_features, content_features)
+        adain_result = self.adain(style_encoding, content_encoding)
 
         # Decode to image
         image_result = self.decoder(adain_result)
