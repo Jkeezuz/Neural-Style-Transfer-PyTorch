@@ -13,6 +13,9 @@ from Layers.AdainStyleLayer import AdainStyleLayer
 from constants import *
 from utilities import *
 
+import torch.nn.functional as F
+
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 normalize_mean = [0.485, 0.456, 0.406]
 normalize_std = [0.229, 0.224, 0.225]
@@ -133,20 +136,17 @@ class AdaIN(object):
         # return image and adain result
         return image_result, adain_result
 
+    def compute_style_loss(self, input, target):
+        # Compute std and mean of input
+        input_std = torch.std(input, [1, 2], keepdim=True)
+        input_mean = torch.mean(input, [1, 2], keepdim=True)
+        # Compute std and mean of target
+        target_std = torch.std(target, [1, 2], keepdim=True)
+        target_mean = torch.mean(target, [1, 2], keepdim=True)
+        return F.mse_loss(input_mean, target_mean) + \
+            F.mse_loss(input_std, target_std)
+
     def compute_loss(self, decoded_image, style_image, adain_result):
-
-        # Update target activations in style layers of encoder
-        style_loss = 0
-        # TODO: CHANGE THIS!!!
-        # TODO: RIGHT NOW WE NEED TO ITERATE OVER EVERY STYLE LAYER AND SET ITS MODE, THINK ABOUT SOMETHING MORE ELEGANT
-        for sl in self.style_layers:
-            sl.target = True
-
-        self.encoder(style_image.to(device))
-
-        for sl in self.style_layers:
-            sl.target = False
-
         # Pass decoded image through encoder
         gen_encoding = self.encoder(decoded_image)
 
@@ -154,8 +154,7 @@ class AdaIN(object):
         content_loss = torch.dist(adain_result, gen_encoding)
 
         # Style Loss
-        for sl in self.style_layers:
-            style_loss += sl.loss
+        style_loss = self.compute_style_loss(style_image, gen_encoding)
 
         return style_loss, content_loss
 
