@@ -1,6 +1,5 @@
 from time import strftime, gmtime
 
-import torch
 import torch.nn as nn
 import torchvision.models as models
 
@@ -10,7 +9,6 @@ import torch.optim as optim
 from Layers.NormalizeLayer import NormalizeLayer
 from Layers.AdainStyleLayer import AdainStyleLayer
 
-from constants import *
 from utilities import *
 
 import torch.nn.functional as F
@@ -136,13 +134,13 @@ class AdaIN(object):
         # return image and adain result
         return image_result, adain_result
 
-    def compute_style_loss(self, input, target):
+    def compute_style_loss(self, style, decoded):
         # Compute std and mean of input
-        input_std = torch.std(input, [1, 2], keepdim=True)
-        input_mean = torch.mean(input, [1, 2], keepdim=True)
+        input_std = torch.std(style, [1, 2], keepdim=True)
+        input_mean = torch.mean(style, [1, 2], keepdim=True)
         # Compute std and mean of target
-        target_std = torch.std(target, [1, 2], keepdim=True)
-        target_mean = torch.mean(target, [1, 2], keepdim=True)
+        target_std = torch.std(decoded, [1, 2], keepdim=True)
+        target_mean = torch.mean(decoded, [1, 2], keepdim=True)
         return F.mse_loss(input_mean, target_mean) + \
             F.mse_loss(input_std, target_std)
 
@@ -154,7 +152,23 @@ class AdaIN(object):
         content_loss = torch.dist(adain_result, gen_encoding)
 
         # Style Loss
-        style_loss = self.compute_style_loss(style_image, gen_encoding)
+        style_activations = []
+        decoded_activations = []
+
+        # Get the style image activations from network
+        self.encoder(style_image.to(device))
+        for sl in self.style_layers:
+            style_activations.append(sl.activations)
+
+        # Get the decoded image activations from network
+        self.encoder(decoded_image.to(device))
+        for sl in self.style_layers:
+            decoded_activations.append(sl.activations)
+
+        # Compute the cumulative value of style loss
+        style_loss = 0
+        for da, sa in zip(decoded_activations, style_activations):
+            style_loss += self.compute_style_loss(da, sa)
 
         return style_loss, content_loss
 
