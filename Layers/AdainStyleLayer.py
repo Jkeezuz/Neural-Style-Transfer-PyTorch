@@ -13,8 +13,6 @@ class AdainStyleLayer(nn.Module):
         super(AdainStyleLayer, self).__init__()
         # Compute the gram matrix of target activations for style image
         self.target_activations = None
-        self.loss = 0
-        self.target = False
 
     def forward(self, activations):
 
