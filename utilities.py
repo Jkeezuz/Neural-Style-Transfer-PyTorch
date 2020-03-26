@@ -42,7 +42,7 @@ def to_image(tensor):
     return image
 
 
-def show_tensor(tensor, title=None):
+def show_tensor(tensor, title=None, num=None):
     """
     Helper function to convert the pytorch tensor back to displayable format.
     """
@@ -53,7 +53,7 @@ def show_tensor(tensor, title=None):
     sizes = list(tensor.size())
     if len(sizes) > 3:
         # Iterate over images
-        for i in range(sizes[0]):
+        for i in range(num if num else sizes[0]):
             image = to_image(tensor[i])
 
             plt.imshow(image)
