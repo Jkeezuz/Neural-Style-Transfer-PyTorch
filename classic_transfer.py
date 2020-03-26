@@ -1,13 +1,10 @@
-import matplotlib.pyplot as plt
-from PIL import Image
+import time
+
 
 import torchvision.models as models
-import torchvision.transforms as transforms
-
 import torch.nn as nn
 import torch.optim as optim
 
-import numpy as np
 import torch
 import pprint
 import copy
@@ -16,70 +13,10 @@ from Layers.NormalizeLayer import NormalizeLayer
 from Layers.ContentLayer import ContentLayer
 from Layers.StyleLayer import StyleLayer
 
+from constants import *
 # -- CONSTANTS --
-imsize = (300, 300)
-device = 'cuda'
-RESULTS_PATH = "images/results/"
-IMAGES_PATH = "images/"
 
-# -- UTILITY FUNCTIONS --
-
-
-def resize(image, size):
-    """Resize the image to size specified in the beginning of code"""
-    return np.array(Image.fromarray(image).resize(size))
-
-
-def image_loader(image_name):
-    """Loads the images as preprocessed tensors"""
-    # pytorch loader to take care of resizing and transforming image to tensor
-    loader = transforms.Compose([
-        transforms.Resize(imsize),
-        transforms.ToTensor()])
-    # Load the image from the disk
-    image = Image.open(image_name)
-    # Add batch dimension of 1 at dimension 0 to
-    # satisfy pytorch's requirements of dimensions
-    image = loader(image).unsqueeze(0)
-    return image.to(device, torch.float)
-
-
-def to_image(tensor):
-    """Converts tensor to PIL image"""
-    # Converts to PIL image
-    unloader = transforms.ToPILImage()
-    # Clone the tensor to CPU
-    image = tensor.cpu().clone()
-    # Remove fake batch dimension
-    image = image.squeeze(0)
-    # Convert to PIL image
-    image = unloader(image)
-    return image
-
-
-def show_tensor(tensor, title=None):
-    """
-    Helper function to convert the pytorch tensor back to displayable format.
-    """
-    # Turn on the interactive mode of plt
-    plt.ion()
-    plt.figure()
-
-    image = to_image(tensor)
-
-    plt.imshow(image)
-    if title is not None:
-      plt.title(title)
-    plt.pause(0.001)
-
-
-def save_tensor(tensor, title="NONAME"):
-    """
-    Helper function to save pytorch tensor as jpg image.
-    """
-    image = to_image(tensor)
-
-    image.save(RESULTS_PATH+"{}.jpg".format(title))
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Now to properly implement the style transfer we need to:
 # 1. Define the custom content layer that will allow us to compute content loss (ContentLayer.py)
@@ -170,6 +107,8 @@ def rebuild_model(nn_model, content_image, style_image,
             break
     model = model[:(i + 1)]
 
+    pprint.pprint(model)
+
     return model, content_layers, style_layers
 
 
@@ -188,8 +127,9 @@ def style_transfer(nn_model, content_image, style_image, input_image, normalize_
                                                         normalize_std, content_layers_req, style_layers_req)
     # Get the LBFGS optimizer
     model.eval()
-    input_image = input_image.cuda()
+    input_image = input_image.to(device)
     lbfgs = get_optimizer(input_image)
+    style_layers_factor = 1 / len(style_layers_req)
     # Run the optimizer for num_steps
     run = [0]
     while run[0] <= num_steps:
@@ -206,7 +146,7 @@ def style_transfer(nn_model, content_image, style_image, input_image, normalize_
             # Compute the style and content stores
             # based on values computed in style/content layers during forward propagation
             for sl in style_layers:
-                style_score += sl.loss
+                style_score += sl.loss #* style_layers_factor
             for cl in content_layers:
                 content_score += cl.loss
 
@@ -274,8 +214,13 @@ if __name__ == '__main__':
 
     input_tensor = content_tensor.clone()
 
+    start_time = time.time()
+
     output = style_transfer(model, content_tensor, style_tensor, input_tensor,
                             mean, std, content_layers_req, style_layers_req)
 
+    elapsed_time = time.time() - start_time
     show_tensor(output, title="output")
     save_tensor(output, "C-"+content_name+"S-"+style_name)
+
+    print(time.strftime("Elapsed time %Mm:%Ss", time.gmtime(elapsed_time)))
