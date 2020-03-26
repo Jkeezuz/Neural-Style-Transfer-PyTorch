@@ -16,6 +16,6 @@ class AdainStyleLayer(nn.Module):
         self.activations = None
 
     def forward(self, activations):
-        self.activations = activations.detach()
+        self.activations = activations
         # Pass the activations forward in neural network
         return activations
