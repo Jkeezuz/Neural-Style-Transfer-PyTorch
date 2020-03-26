@@ -28,7 +28,7 @@ class AdaIN(object):
 
     def build_encoder(self, depth, style_req):
         """Builds an encoder that uses first "depth" numbers of convolutional layers of VGG19"""
-        vgg = models.vgg19(pretrained=True).features.to(device)
+        vgg = models.vgg19(pretrained=True).features.to(device).eval()
 
         model_copy = copy.deepcopy(vgg)
         # Define the layer names from which we want to pick activations
@@ -114,13 +114,14 @@ class AdaIN(object):
 
         return style_std * ((content_features - content_mean)/content_std) + style_mean
 
-    def forward(self, style_image, content_image):
+    def forward(self, style_image, content_image, alpha=1.0):
         # Encode style and content image
-        style_encoding = self.encoder(style_image.to(device))
-        content_encoding = self.encoder(content_image.to(device))
+        style_encoding = self.encoder(style_image).detach()
+        content_encoding = self.encoder(content_image).detach()
 
         # Compute AdaIN
         adain_result = self.adain(style_encoding, content_encoding)
+        adain_result = alpha * adain_result + (1 - alpha) * content_encoding
 
         # Decode to image
         image_result = self.decoder(adain_result)
@@ -153,19 +154,19 @@ class AdaIN(object):
         decoded_activations = []
 
         # Get the style image activations from network
-        self.encoder(style_image.to(device))
+        self.encoder(style_image)
         for sl in self.style_layers:
-            style_activations.append(sl.activations)
+            style_activations.append(sl.activations.detach())
 
         # Get the decoded image activations from network
-        self.encoder(decoded_image.to(device))
+        self.encoder(decoded_image)
         for sl in self.style_layers:
             decoded_activations.append(sl.activations)
 
         # Compute the cumulative value of style loss
         style_loss = 0
-        for da, sa in zip(decoded_activations, style_activations):
-            style_loss += self.compute_style_loss(da, sa)
+        for sa, da in zip(style_activations, decoded_activations):
+            style_loss += self.compute_style_loss(sa, da)
 
         return style_loss, content_loss
 
@@ -179,10 +180,13 @@ class AdaIN(object):
         for epoch in range(epochs):
             for i_batch, sample in enumerate(dataloader):
 
+                content = sample['style'].to(device)
+                style = sample['content'].to(device)
+
                 opt.zero_grad()
 
-                decoded, adain_res = self.forward(sample['style'], sample['content'])
-                style_loss, content_loss = self.compute_loss(decoded, sample['style'], adain_res)
+                decoded, adain_res = self.forward(style, content)
+                style_loss, content_loss = self.compute_loss(decoded, style, adain_res)
                 total_loss = style_loss*style_weight + content_loss
 
                 total_loss.backward()
@@ -191,7 +195,7 @@ class AdaIN(object):
 
                 # Check network performance every x steps
                 if i_batch == 0:
-                    test, _ = self.forward(sample['style'], sample['content'])
+                    test, _ = self.forward(style, content)
                     show_tensor(test, epoch, 1)
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
