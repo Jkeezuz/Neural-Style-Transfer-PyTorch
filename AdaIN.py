@@ -100,14 +100,16 @@ class AdaIN(object):
 
     def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
+        # Pytorch shape - NxCxHxW
+        # Computing values across spatial dimensions
         # Compute std of content_features
-        content_std = torch.std(content_features, [1, 2], keepdim=True)
+        content_std = torch.std(content_features, [2, 3], keepdim=True)
         # Compute mean of content_features
-        content_mean = torch.mean(content_features, [1, 2], keepdim=True)
+        content_mean = torch.mean(content_features, [2, 3], keepdim=True)
         # Compute std of style_features
-        style_std = torch.std(style_features, [1, 2], keepdim=True)
+        style_std = torch.std(style_features, [2, 3], keepdim=True)
         # Compute mean of style_features
-        style_mean = torch.mean(style_features, [1, 2], keepdim=True)
+        style_mean = torch.mean(style_features, [2, 3], keepdim=True)
 
         return style_std * ((content_features - content_mean)/content_std) + style_mean
 
@@ -127,11 +129,11 @@ class AdaIN(object):
 
     def compute_style_loss(self, style, decoded):
         # Compute std and mean of input
-        input_std = torch.std(style, [1, 2], keepdim=True)
-        input_mean = torch.mean(style, [1, 2], keepdim=True)
+        input_std = torch.std(style, [2, 3], keepdim=True)
+        input_mean = torch.mean(style, [2, 3], keepdim=True)
         # Compute std and mean of target
-        target_std = torch.std(decoded, [1, 2], keepdim=True)
-        target_mean = torch.mean(decoded, [1, 2], keepdim=True)
+        target_std = torch.std(decoded, [2, 3], keepdim=True)
+        target_mean = torch.mean(decoded, [2, 3], keepdim=True)
         return F.mse_loss(input_mean, target_mean) + \
             F.mse_loss(input_std, target_std)
 
