@@ -9,7 +9,7 @@ import torch.optim as optim
 from Layers.NormalizeLayer import NormalizeLayer
 from Layers.AdainStyleLayer import AdainStyleLayer
 
-from utilities import *
+from resources.utilities import *
 
 import torch.nn.functional as F
 
@@ -86,8 +86,8 @@ class AdaIN(object):
         model.add_module("ReLU_1", nn.ReLU(True))
 
         model.add_module("ConvTranspose2d_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
-        model.add_module("Upsample_2", nn.Upsample(scale_factor=2))
         model.add_module("ReLU_2", nn.ReLU(True))
+        model.add_module("Upsample_2", nn.Upsample(scale_factor=2))
 
         model.add_module("ConvTranspose2d_3", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
         model.add_module("ReLU_3", nn.ReLU(True))
@@ -100,6 +100,7 @@ class AdaIN(object):
 
     def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
+
         # Pytorch shape - NxCxHxW
         # Computing values across spatial dimensions
         # Compute std of content_features
@@ -123,6 +124,9 @@ class AdaIN(object):
 
         # Decode to image
         image_result = self.decoder(adain_result)
+
+        #TEST
+        show_tensor(image_result, "Test", 1)
 
         # return image and adain result
         return image_result, adain_result
@@ -188,7 +192,7 @@ class AdaIN(object):
                 # Check network performance every x steps
                 if i_batch == 0:
                     test, _ = self.forward(sample['style'], sample['content'])
-                    show_tensor(test, epoch)
+                    show_tensor(test, epoch, 1)
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
                         style_loss.item()*style_weight, content_loss.item()))

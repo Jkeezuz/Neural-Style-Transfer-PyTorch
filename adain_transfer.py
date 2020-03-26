@@ -1,8 +1,8 @@
 from torch.utils.data import DataLoader
 
 from dataprocess.StyleTransferDataset import StyleTransferDataset
-from utilities import *
-from AdaIN import AdaIN
+from resources.utilities import *
+from Model.AdaIN import AdaIN
 import pprint
 
 

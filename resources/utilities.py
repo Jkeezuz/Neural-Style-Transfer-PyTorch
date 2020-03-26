@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import  torchvision.transforms as transforms
 import torch
-from constants import *
+from resources.constants import *
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 

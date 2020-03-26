@@ -13,7 +13,7 @@ from Layers.NormalizeLayer import NormalizeLayer
 from Layers.ContentLayer import ContentLayer
 from Layers.StyleLayer import StyleLayer
 
-from constants import *
+from resources.constants import *
 # -- CONSTANTS --
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
