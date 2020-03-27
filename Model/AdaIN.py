@@ -1,3 +1,4 @@
+import torchvision
 from time import strftime, gmtime
 
 import torch.nn as nn
@@ -5,6 +6,7 @@ import torchvision.models as models
 
 import copy
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 from Layers.NormalizeLayer import NormalizeLayer
 from Layers.AdainStyleLayer import AdainStyleLayer
@@ -83,17 +85,17 @@ class AdaIN(object):
 
         # Build decoder for depth = 4
         model.add_module("ConvTranspose2d_1", nn.ConvTranspose2d(128, 128, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_1", nn.ReLU(True))
+        model.add_module("ReLU_1", nn.ReLU())
 
         model.add_module("ConvTranspose2d_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_2", nn.ReLU(True))
+        model.add_module("ReLU_2", nn.ReLU())
         model.add_module("Upsample_2", nn.Upsample(scale_factor=2))
 
         model.add_module("ConvTranspose2d_3", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_3", nn.ReLU(True))
+        model.add_module("ReLU_3", nn.ReLU())
 
         model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_4", nn.ReLU(True))
+        model.add_module("ReLU_4", nn.ReLU())
 
         # Send model to CUDA or CPU
         return model.to(device)
@@ -153,7 +155,7 @@ class AdaIN(object):
         # Get the style image activations from network
         self.encoder(style_image)
         for sl in self.style_layers:
-            style_activations.append(sl.activations)
+            style_activations.append(sl.activations.detach())
 
         # Get the decoded image activations from network
         self.encoder(generated_image)
@@ -174,6 +176,33 @@ class AdaIN(object):
         style_losses = []
         content_losses = []
 
+        # TensorBoard visualization
+        writer = SummaryWriter()
+
+        sample = next(iter(dataloader))
+        content_image = sample['style'].to(device)
+        style_image = sample['content'].to(device)
+
+        # Logs for tensorboard
+        grid = torchvision.utils.make_grid(style_image)
+        grid2 = torchvision.utils.make_grid(content_image)
+
+        writer.add_image('style_image', grid, 0)
+        writer.add_image('content_image', grid2, 0)
+
+        writer.add_graph(self.encoder, style_image)
+        writer.add_graph(self.encoder, content_image)
+
+        style_feat = self.encoder(style_image)
+        content_feat = self.encoder(content_image)
+
+        adain = self.adain(style_feat, content_feat)
+
+        writer.add_graph(self.decoder, adain)
+
+        writer.flush()
+        writer.close()
+
         for epoch in range(epochs):
             for i_batch, sample in enumerate(dataloader):
 
@@ -184,11 +213,15 @@ class AdaIN(object):
 
                 gen_image, adain = self.forward(style_image, content_image)
                 style_loss, content_loss = self.compute_loss(gen_image, style_image, adain)
-                total_loss = style_loss*style_weight + content_loss
+                style_loss = style_loss*style_weight
+                total_loss = style_loss + content_loss
 
                 total_loss.backward()
 
                 opt.step()
+
+
+
 
                 # Check network performance every x steps
                 if i_batch == 0:
@@ -196,11 +229,11 @@ class AdaIN(object):
                     show_tensor(test, epoch, 1)
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
-                        style_loss.item()*style_weight, content_loss.item()))
+                        style_loss.item(), content_loss.item()))
                     print()
 
                     # Plot the loss
-                    style_losses.append(style_loss.item()*style_weight)
+                    style_losses.append(style_loss.item())
                     content_losses.append(content_loss.item())
                     plt.figure()
                     plt.plot(range(epoch+1), style_losses, label="style loss")
