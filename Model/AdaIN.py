@@ -116,38 +116,35 @@ class AdaIN(object):
 
     def forward(self, style_image, content_image, alpha=1.0):
         # Encode style and content image
-        style_encoding = self.encoder(style_image).detach()
-        content_encoding = self.encoder(content_image).detach()
+        style_features = self.encoder(style_image).detach()
+        content_features = self.encoder(content_image).detach()
 
         # Compute AdaIN
-        adain_result = self.adain(style_encoding, content_encoding)
-        adain_result = alpha * adain_result + (1 - alpha) * content_encoding
+        adain_result = self.adain(style_features, content_features)
+        adain_result = alpha * adain_result + (1 - alpha) * content_features
 
         # Decode to image
-        image_result = self.decoder(adain_result)
-
-        #TEST
-        show_tensor(image_result, "Test", 1)
+        generated_image = self.decoder(adain_result)
 
         # return image and adain result
-        return image_result, adain_result
+        return generated_image, adain_result
 
-    def compute_style_loss(self, style, decoded):
+    def compute_style_loss(self, style, generated):
         # Compute std and mean of input
-        input_std = torch.std(style, [2, 3], keepdim=True)
-        input_mean = torch.mean(style, [2, 3], keepdim=True)
+        style_std = torch.std(style, [2, 3], keepdim=True)
+        style_mean = torch.mean(style, [2, 3], keepdim=True)
         # Compute std and mean of target
-        target_std = torch.std(decoded, [2, 3], keepdim=True)
-        target_mean = torch.mean(decoded, [2, 3], keepdim=True)
-        return F.mse_loss(input_mean, target_mean) + \
-            F.mse_loss(input_std, target_std)
+        generated_std = torch.std(generated, [2, 3], keepdim=True)
+        generated_mean = torch.mean(generated, [2, 3], keepdim=True)
+        return F.mse_loss(style_mean, generated_mean) + \
+            F.mse_loss(style_std, generated_std)
 
-    def compute_loss(self, decoded_image, style_image, adain_result):
+    def compute_loss(self, generated_image, style_image, adain_result):
         # Pass decoded image through encoder
-        gen_encoding = self.encoder(decoded_image)
+        gen_features = self.encoder(generated_image)
 
         # Content loss, L2 norm
-        content_loss = torch.dist(adain_result, gen_encoding)
+        content_loss = torch.dist(adain_result, gen_features)
 
         # Style Loss
         style_activations = []
@@ -156,10 +153,10 @@ class AdaIN(object):
         # Get the style image activations from network
         self.encoder(style_image)
         for sl in self.style_layers:
-            style_activations.append(sl.activations.detach())
+            style_activations.append(sl.activations)
 
         # Get the decoded image activations from network
-        self.encoder(decoded_image)
+        self.encoder(generated_image)
         for sl in self.style_layers:
             decoded_activations.append(sl.activations)
 
@@ -172,7 +169,7 @@ class AdaIN(object):
 
     def train(self, dataloader, style_weight, epochs):
 
-        opt = optim.Adam(self.decoder.parameters())
+        opt = optim.Adam(self.decoder.parameters(), lr=1e-4)
 
         style_losses = []
         content_losses = []
@@ -180,13 +177,13 @@ class AdaIN(object):
         for epoch in range(epochs):
             for i_batch, sample in enumerate(dataloader):
 
-                content = sample['style'].to(device)
-                style = sample['content'].to(device)
+                content_image = sample['style'].to(device)
+                style_image = sample['content'].to(device)
 
                 opt.zero_grad()
 
-                decoded, adain_res = self.forward(style, content)
-                style_loss, content_loss = self.compute_loss(decoded, style, adain_res)
+                gen_image, adain = self.forward(style_image, content_image)
+                style_loss, content_loss = self.compute_loss(gen_image, style_image, adain)
                 total_loss = style_loss*style_weight + content_loss
 
                 total_loss.backward()
@@ -195,7 +192,7 @@ class AdaIN(object):
 
                 # Check network performance every x steps
                 if i_batch == 0:
-                    test, _ = self.forward(style, content)
+                    test, _ = self.forward(style_image, content_image)
                     show_tensor(test, epoch, 1)
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
