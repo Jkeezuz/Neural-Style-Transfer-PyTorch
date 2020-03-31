@@ -23,10 +23,9 @@ if __name__ == "__main__":
     
     style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4"]
 
-    adain = AdaIN(4, style_layers_req)
 
-    pprint.pprint(adain.encoder)
-    pprint.pprint(adain.decoder)
+    #
+
 
     # TRAIN
     transformed_dataset = StyleTransferDataset(CONTENT_PATH, STYLE_PATH, transform=transforms.Compose([
@@ -34,6 +33,9 @@ if __name__ == "__main__":
                                                transforms.RandomCrop(224),
                                                transforms.ToTensor()]))
     dataloader = DataLoader(transformed_dataset, batch_size=4,
-                            shuffle=True, num_workers=4)
+                            shuffle=True)
 
-    adain.train(dataloader=dataloader, style_weight=100, epochs=5)
+    adain = AdaIN(4, style_layers_req)
+    pprint.pprint(adain.encoder)
+    pprint.pprint(adain.decoder)
+    adain.train(dataloader=dataloader, style_weight=1000, epochs=5)
