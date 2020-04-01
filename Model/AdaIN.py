@@ -50,7 +50,7 @@ class AdaIN(object):
             # The layers in vgg are not numerated so we have to add numeration
             # to copied layers so we can append our content and style layers to it
             name = ""
-            # Check which instance this layer is to name it appropiately
+            # Check which instance this layer is to name it appropriately
             if isinstance(layer, nn.Conv2d):
                 i += 1
                 # Stop when we reach required depth
@@ -181,33 +181,35 @@ class AdaIN(object):
         content_losses = []
 
         # TensorBoard visualization
-        writer = SummaryWriter()
+       #  writer = SummaryWriter()
+       #
+       #  sample = next(iter(dataloader))
+       #  content_image_test = sample['content'].to(device)
+       #  style_image_test = sample['style'].to(device)
+       #  show_tensor(content_image_test, "content", 1)
+       #  show_tensor(style_image_test, "style", 1)
+       #
+       #  # Logs for tensorboard
+       #  grid = torchvision.utils.make_grid(style_image_test)
+       #  grid2 = torchvision.utils.make_grid(content_image_test)
+       #
+       #  writer.add_image('style_image', grid, 0)
+       #  writer.add_image('content_image', grid2, 0)
+       #
+       #  style_feat = self.encoder(style_image_test)
+       #  content_feat = self.encoder(content_image_test)
+       #
+       #  adain = self.adain(style_feat, content_feat)
+       #
+       #
+       #  writer.add_graph(self.encoder, style_image_test)
+       # # writer.add_graph(self.encoder, content_image_test)
+       # # writer.add_graph(self.decoder, adain)
+       #
+       #  writer.flush()
+       #  writer.close()
 
-        sample = next(iter(dataloader))
-        content_image_test = sample['content'].to(device)
-        style_image_test = sample['style'].to(device)
-        show_tensor(content_image_test, "content", 1)
-        show_tensor(style_image_test, "style", 1)
-
-        # Logs for tensorboard
-        grid = torchvision.utils.make_grid(style_image_test)
-        grid2 = torchvision.utils.make_grid(content_image_test)
-
-        writer.add_image('style_image', grid, 0)
-        writer.add_image('content_image', grid2, 0)
-
-        style_feat = self.encoder(style_image_test)
-        content_feat = self.encoder(content_image_test)
-
-        adain = self.adain(style_feat, content_feat)
-
-
-        writer.add_graph(self.encoder, style_image_test)
-       # writer.add_graph(self.encoder, content_image_test)
-       # writer.add_graph(self.decoder, adain)
-
-        writer.flush()
-        writer.close()
+        # Set up scheduler
 
         for epoch in range(epochs):
             adjust_learning_rate(opt, 1e-4, 5e-5, epoch)
@@ -230,12 +232,13 @@ class AdaIN(object):
                 # Check network performance every x steps
                 if i_batch == 0:
                     with torch.no_grad():
-                        test, _ = self.forward(style_image_test, content_image_test)
-                        show_tensor(test, epoch, 1)
+                        test, _ = self.forward(style_image, content_image)
+                        show_tensor(content_image, "Content at epoch {0}".format(epoch), 1)
+                        show_tensor(style_image, "Style at epoch {0}".format(epoch), 1)
+                        show_tensor(test, "Style transfer at epoch {0}".format(epoch), 1)
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
                         style_loss.item(), content_loss.item()))
-                    print()
 
                     # Plot the loss
                     style_losses.append(style_loss.item())
