@@ -21,11 +21,7 @@ if __name__ == "__main__":
     # DEBUG ONLY
     # rename(CONTENT_PATH)
     
-    style_layers_req = ["Conv2d_1", "Conv2d_2", "Conv2d_3", "Conv2d_4"]
-
-
-    #
-
+    style_layers_req = ["ReLu_1", "ReLu_2", "ReLu_3", "ReLu_4"]
 
     # TRAIN
     transformed_dataset = StyleTransferDataset(CONTENT_PATH, STYLE_PATH, transform=transforms.Compose([
@@ -36,6 +32,7 @@ if __name__ == "__main__":
                             shuffle=True)
 
     adain = AdaIN(4, style_layers_req)
+
     pprint.pprint(adain.encoder)
     pprint.pprint(adain.decoder)
     adain.train(dataloader=dataloader, style_weight=1000, epochs=5)
