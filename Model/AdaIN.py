@@ -6,6 +6,7 @@ import torchvision.models as models
 
 import copy
 import torch.optim as optim
+from torch.backends import cudnn
 from torch.utils.tensorboard import SummaryWriter
 
 from Layers.NormalizeLayer import NormalizeLayer
@@ -15,6 +16,8 @@ from resources.utilities import *
 
 import torch.nn.functional as F
 
+cudnn.benchmark = True
+cudnn.enabled = True
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 normalize_mean = [0.485, 0.456, 0.406]
@@ -140,23 +143,17 @@ class AdaIN(object):
             F.mse_loss(style_std, generated_std)
 
     def compute_loss(self, generated_image, style_image, adain_result):
-        # Pass decoded image through encoder
-        gen_features = self.encoder(generated_image)
-
-        # Content loss, L2 norm
-        content_loss = torch.dist(adain_result, gen_features)
-
-        # Style Loss
         style_activations = []
         decoded_activations = []
 
         # Get the style image activations from network
-        self.encoder(style_image)
-        for sl in self.style_layers:
-            style_activations.append(sl.activations.detach())
+        with torch.no_grad():
+            self.encoder(style_image)
+            for sl in self.style_layers:
+                style_activations.append(sl.activations)
 
         # Get the decoded image activations from network
-        self.encoder(generated_image)
+        gen_features = self.encoder(generated_image)
         for sl in self.style_layers:
             decoded_activations.append(sl.activations)
 
@@ -165,9 +162,18 @@ class AdaIN(object):
         for sa, da in zip(style_activations, decoded_activations):
             style_loss += self.compute_style_loss(sa, da)
 
+        # Content loss, L2 norm
+        content_loss = torch.dist(adain_result, gen_features)
+
         return style_loss, content_loss
 
     def train(self, dataloader, style_weight, epochs):
+
+        def adjust_learning_rate(optimizer, lr, lr_decay, iteration_count):
+            """Imitating the original implementation"""
+            new_lr = lr / (1.0 + lr_decay * iteration_count)
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = new_lr
 
         opt = optim.Adam(self.decoder.parameters(), lr=1e-4)
 
@@ -178,30 +184,33 @@ class AdaIN(object):
         writer = SummaryWriter()
 
         sample = next(iter(dataloader))
-        content_image = sample['content'].to(device)
-        style_image = sample['style'].to(device)
+        content_image_test = sample['content'].to(device)
+        style_image_test = sample['style'].to(device)
+        show_tensor(content_image_test, "content", 1)
+        show_tensor(style_image_test, "style", 1)
 
         # Logs for tensorboard
-        grid = torchvision.utils.make_grid(style_image)
-        grid2 = torchvision.utils.make_grid(content_image)
+        grid = torchvision.utils.make_grid(style_image_test)
+        grid2 = torchvision.utils.make_grid(content_image_test)
 
         writer.add_image('style_image', grid, 0)
         writer.add_image('content_image', grid2, 0)
 
-        style_feat = self.encoder(style_image)
-        content_feat = self.encoder(content_image)
+        style_feat = self.encoder(style_image_test)
+        content_feat = self.encoder(content_image_test)
 
         adain = self.adain(style_feat, content_feat)
 
 
-        writer.add_graph(self.encoder, style_image)
-       # writer.add_graph(self.encoder, content_image)
+        writer.add_graph(self.encoder, style_image_test)
+       # writer.add_graph(self.encoder, content_image_test)
        # writer.add_graph(self.decoder, adain)
 
         writer.flush()
         writer.close()
 
         for epoch in range(epochs):
+            adjust_learning_rate(opt, 1e-4, 5e-5, epoch)
             for i_batch, sample in enumerate(dataloader):
 
                 content_image = sample['content'].to(device)
@@ -220,8 +229,9 @@ class AdaIN(object):
 
                 # Check network performance every x steps
                 if i_batch == 0:
-                    test, _ = self.forward(style_image, content_image)
-                    show_tensor(test, epoch, 1)
+                    with torch.no_grad():
+                        test, _ = self.forward(style_image_test, content_image_test)
+                        show_tensor(test, epoch, 1)
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
                         style_loss.item(), content_loss.item()))
@@ -240,3 +250,5 @@ class AdaIN(object):
         # Save decoder after training
         torch.save(self.decoder.state_dict(), "decoder.pth")
 
+    def load_save(self):
+        self.decoder.load_state_dict(torch.load("decoder.pth"))
