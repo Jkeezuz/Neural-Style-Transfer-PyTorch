@@ -28,11 +28,19 @@ if __name__ == "__main__":
                                                transforms.Resize(256),
                                                transforms.RandomCrop(224),
                                                transforms.ToTensor()]))
-    dataloader = DataLoader(transformed_dataset, batch_size=4,
-                            shuffle=True)
+    dataloader = DataLoader(transformed_dataset, batch_size=8,
+                            shuffle=True, num_workers=4)
 
     adain = AdaIN(4, style_layers_req)
 
     pprint.pprint(adain.encoder)
     pprint.pprint(adain.decoder)
-    adain.train(dataloader=dataloader, style_weight=1000, epochs=5)
+
+    # Save the random weights for reuse
+    torch.save(adain.decoder.state_dict(), "decoder_random.pth")
+
+    for sw in [100, 1000, 10000]:
+        adain.train(dataloader=dataloader, style_weight=sw, epochs=10)
+
+        # Reset decoder to starting weights
+        adain.decoder.load_state_dict(torch.load("decoder_random.pth"))
