@@ -39,8 +39,9 @@ if __name__ == "__main__":
     # Save the random weights for reuse
     torch.save(adain.decoder.state_dict(), "decoder_random.pth")
 
-    for sw in [100, 1000, 10000]:
+    # Train with different style weights to see the difference
+    style_weights = [100, 1000, 10000]
+    for sw in style_weights:
         adain.train(dataloader=dataloader, style_weight=sw, epochs=10)
-
         # Reset decoder to starting weights
         adain.decoder.load_state_dict(torch.load("decoder_random.pth"))
