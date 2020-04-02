@@ -1,3 +1,5 @@
+import pprint
+
 import torchvision
 from time import strftime, gmtime
 
@@ -26,77 +28,78 @@ normalize_std = [0.229, 0.224, 0.225]
 
 class AdaIN(object):
 
-    def __init__(self, depth, style_req):
+    def __init__(self):
         self.style_layers = []
-        self.encoder = self.build_encoder(depth, style_req)
-        self.decoder = self.build_decoder(depth)
+        self.encoder = self.build_encoder()
+        self.decoder = self.build_decoder()
 
-    def build_encoder(self, depth, style_req):
-        """Builds an encoder that uses first "depth" numbers of convolutional layers of VGG19"""
-        vgg = models.vgg19(pretrained=True).features.to(device).eval()
-        # Define the layer names from which we want to pick activations
+    def build_encoder(self):
+        """Builds an encoder that uses first 4 numbers of convolutional layers of VGG19"""
 
-        # Create a new model that will be modified version of given model
-        # starts with normalization layer to ensure all images that are
-        # inserted are normalized like the ones original model was trained on
-        norm_layer = NormalizeLayer(normalize_mean, normalize_std)
+        # TODO: ADD NORMALIZATION LAYER
+        class Encoder(nn.Module):
+            """Vgg 19 modified to return intermediate results (activations)"""
+            def __init__(self):
+                super(Encoder, self).__init__()
 
-        model = nn.Sequential(norm_layer)
-        model = model.to(device)
+                self.norm = NormalizeLayer(normalize_mean, normalize_std)
 
-        i = 0
-        # Loop over the layers
-        for layer in vgg.children():
-            # The layers in vgg are not numerated so we have to add numeration
-            # to copied layers so we can append our content and style layers to it
-            name = ""
-            # Check which instance this layer is to name it appropriately
-            if isinstance(layer, nn.Conv2d):
-                i += 1
-                # Stop when we reach required depth
-                if i > depth:
-                    break
-                name = "Conv2d_{}".format(i)
-            if isinstance(layer, nn.ReLU):
-                name = "ReLu_{}".format(i)
-                layer = nn.ReLU(inplace=False)
-            if isinstance(layer, nn.MaxPool2d):
-                if i >= depth:
-                    break
-                name = "MaxPool2d_{}".format(i)
-            # Layer has now numerated name so we can find it easily
-            # Add it to our model
-            model.add_module(name, layer)
+                vgg = models.vgg19(pretrained=True).features.to(device).eval()
+                # DEBUG
+                # pprint.pprint(vgg)
+                # Get desired features from vgg
+                feats = list(vgg)[:21]
+                self.features = nn.ModuleList(feats).to(device).eval()
 
-            # Check for style layers
-            if name in style_req:
-                # Create the style layer
-                style_layer = AdainStyleLayer()
-                # Append it to the module
-                model.add_module("StyleLayer_{}".format(i), style_layer)
-                self.style_layers.append(style_layer)
+            def forward(self, x):
+                results = []
+                # Normalization
+                x = self.norm(x)
+                for ii, model in enumerate(self.features):
+                    x = model(x)
+                    if ii in {1, 6, 11, 20}:
+                        results.append(x)
+                return x, results
 
-        return model.eval()
+        model = Encoder()
+        return model
 
-    def build_decoder(self, depth):
+    def build_decoder(self):
         """Decoder mirrors the encoder architecture"""
         # TODO: FOR NOW WE ASSUME DEPTH = 4
 
         model = nn.Sequential()
 
         # Build decoder for depth = 4
-        model.add_module("ConvTranspose2d_1", nn.ConvTranspose2d(128, 128, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_1", nn.ReLU())
+        model.add_module("ConvTranspose2d1_1", nn.ConvTranspose2d(512, 256, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU1_1", nn.ReLU())
+        model.add_module("Upsample1_1", nn.Upsample(scale_factor=2))
 
-        model.add_module("ConvTranspose2d_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_2", nn.ReLU())
-        model.add_module("Upsample_2", nn.Upsample(scale_factor=2))
+        model.add_module("ConvTranspose2d2_1", nn.ConvTranspose2d(256, 256, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU2_1", nn.ReLU())
 
-        model.add_module("ConvTranspose2d_3", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_3", nn.ReLU())
+        model.add_module("ConvTranspose2d2_2", nn.ConvTranspose2d(256, 256, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU2_2", nn.ReLU())
 
-        model.add_module("ConvTranspose2d_4", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
-        model.add_module("ReLU_4", nn.ReLU())
+        model.add_module("ConvTranspose2d2_3", nn.ConvTranspose2d(256, 256, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU2_3", nn.ReLU())
+
+        model.add_module("ConvTranspose2d2_4", nn.ConvTranspose2d(256, 128, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU2_4", nn.ReLU())
+        model.add_module("Upsample2_4", nn.Upsample(scale_factor=2))
+
+        model.add_module("ConvTranspose2d3_1", nn.ConvTranspose2d(128, 128, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU3_1", nn.ReLU())
+
+        model.add_module("ConvTranspose2d3_2", nn.ConvTranspose2d(128, 64, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU3_2", nn.ReLU())
+        model.add_module("Upsample3_2", nn.Upsample(scale_factor=2))
+
+        model.add_module("ConvTranspose2d4_1", nn.ConvTranspose2d(64, 64, (3, 3), (1, 1), (1, 1)))
+        model.add_module("ReLU4_1", nn.ReLU())
+
+        model.add_module("ConvTranspose2d4_2", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
+        #model.add_module("ReLU4_2", nn.ReLU())
 
         # Send model to CUDA or CPU
         return model.train().to(device)
@@ -120,8 +123,8 @@ class AdaIN(object):
     def forward(self, style_image, content_image, alpha=1.0):
         with torch.no_grad():
             # Encode style and content image
-            style_features = self.encoder(style_image)
-            content_features = self.encoder(content_image)
+            style_features, _ = self.encoder(style_image)
+            content_features, _ = self.encoder(content_image)
             # Compute AdaIN
             adain_result = self.adain(style_features, content_features)
             adain_result = alpha * adain_result + (1 - alpha) * content_features
@@ -143,23 +146,16 @@ class AdaIN(object):
             F.mse_loss(style_std, generated_std)
 
     def compute_loss(self, generated_image, style_image, adain_result):
-        style_activations = []
-        decoded_activations = []
-
         # Get the style image activations from network
         with torch.no_grad():
-            self.encoder(style_image)
-            for sl in self.style_layers:
-                style_activations.append(sl.activations)
+            _, style_activations = self.encoder(style_image)
 
         # Get the decoded image activations from network
-        gen_features = self.encoder(generated_image)
-        for sl in self.style_layers:
-            decoded_activations.append(sl.activations)
+        gen_features, gen_activations = self.encoder(generated_image)
 
         # Compute the cumulative value of style loss
         style_loss = 0
-        for sa, da in zip(style_activations, decoded_activations):
+        for sa, da in zip(style_activations, gen_activations):
             style_loss += self.compute_style_loss(sa, da)
 
         # Content loss, L2 norm
@@ -212,7 +208,7 @@ class AdaIN(object):
         # Set up scheduler
 
         for epoch in range(epochs):
-            adjust_learning_rate(opt, 1e-4, 5e-5, epoch)
+         #   adjust_learning_rate(opt, 1e-4, 5e-5, epoch)
             for i_batch, sample in enumerate(dataloader):
 
                 content_image = sample['content'].to(device)
