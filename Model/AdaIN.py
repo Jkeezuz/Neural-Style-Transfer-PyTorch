@@ -36,28 +36,28 @@ class AdaIN(object):
     def build_encoder(self):
         """Builds an encoder that uses first 4 numbers of convolutional layers of VGG19"""
         class Encoder(nn.Module):
-            """Vgg 19 modified to return intermediate results (activations)"""
+            """Vgg 19 up to ReLU4_1 modified to return intermediate results (activations)"""
             def __init__(self):
                 super(Encoder, self).__init__()
 
                 self.norm = NormalizeLayer(normalize_mean, normalize_std)
 
-                vgg = models.vgg19(pretrained=True).features.to(device).eval()
+                vgg = list(models.vgg19(pretrained=True).to(device).eval().features)[:21]
                 # DEBUG
                 # pprint.pprint(vgg)
                 # Get desired features from vgg
-                self.relu1 = nn.ModuleList(list(vgg)[:2]).to(device).eval()
-                self.relu2 = nn.ModuleList(list(vgg)[2:7]).to(device).eval()
-                self.relu3 = nn.ModuleList(list(vgg)[7:12]).to(device).eval()
-                self.relu4 = nn.ModuleList(list(vgg)[12:21]).to(device).eval()
+                self.relu1 = nn.Sequential(*vgg[:2]) # ReLu1_1 output
+                self.relu2 = nn.Sequential(*vgg[2:7]) # ReLU2_1 output
+                self.relu3 = nn.Sequential(*vgg[7:12]) # ReLU3_1 output
+                self.relu4 = nn.Sequential(*vgg[12:21]) # ReLU4_1 output
 
             def forward(self, x):
 
                 # Normalization
-                x = self.norm(x)
+                x_norm = self.norm(x)
 
                 # Forward pass
-                x1 = self.relu1(x)
+                x1 = self.relu1(x_norm)
                 x2 = self.relu2(x1)
                 x3 = self.relu3(x2)
                 x4 = self.relu4(x3)
@@ -69,8 +69,6 @@ class AdaIN(object):
 
     def build_decoder(self):
         """Decoder mirrors the encoder architecture"""
-        # TODO: FOR NOW WE ASSUME DEPTH = 4
-
         model = nn.Sequential()
 
         # Build decoder for depth = 4
