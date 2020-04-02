@@ -35,8 +35,6 @@ class AdaIN(object):
 
     def build_encoder(self):
         """Builds an encoder that uses first 4 numbers of convolutional layers of VGG19"""
-
-        # TODO: ADD NORMALIZATION LAYER
         class Encoder(nn.Module):
             """Vgg 19 modified to return intermediate results (activations)"""
             def __init__(self):
@@ -48,18 +46,23 @@ class AdaIN(object):
                 # DEBUG
                 # pprint.pprint(vgg)
                 # Get desired features from vgg
-                feats = list(vgg)[:21]
-                self.features = nn.ModuleList(feats).to(device).eval()
+                self.relu1 = nn.ModuleList(list(vgg)[:2]).to(device).eval()
+                self.relu2 = nn.ModuleList(list(vgg)[2:7]).to(device).eval()
+                self.relu3 = nn.ModuleList(list(vgg)[7:12]).to(device).eval()
+                self.relu4 = nn.ModuleList(list(vgg)[12:21]).to(device).eval()
 
             def forward(self, x):
-                results = []
+
                 # Normalization
                 x = self.norm(x)
-                for ii, model in enumerate(self.features):
-                    x = model(x)
-                    if ii in {1, 6, 11, 20}:
-                        results.append(x)
-                return x, results
+
+                # Forward pass
+                x1 = self.relu1(x)
+                x2 = self.relu2(x1)
+                x3 = self.relu3(x2)
+                x4 = self.relu4(x3)
+
+                return [x1, x2, x3, x4]
 
         model = Encoder()
         return model
@@ -99,7 +102,7 @@ class AdaIN(object):
         model.add_module("ReLU4_1", nn.ReLU())
 
         model.add_module("ConvTranspose2d4_2", nn.ConvTranspose2d(64, 3, (3, 3), (1, 1), (1, 1)))
-        #model.add_module("ReLU4_2", nn.ReLU())
+        model.add_module("ReLU4_2", nn.ReLU())
 
         # Send model to CUDA or CPU
         return model.train().to(device)
@@ -123,8 +126,9 @@ class AdaIN(object):
     def forward(self, style_image, content_image, alpha=1.0):
         with torch.no_grad():
             # Encode style and content image
-            style_features, _ = self.encoder(style_image)
-            content_features, _ = self.encoder(content_image)
+            style_features = self.encoder(style_image)[-1]
+
+            content_features = self.encoder(content_image)[-1]
             # Compute AdaIN
             adain_result = self.adain(style_features, content_features)
             adain_result = alpha * adain_result + (1 - alpha) * content_features
@@ -148,10 +152,11 @@ class AdaIN(object):
     def compute_loss(self, generated_image, style_image, adain_result):
         # Get the style image activations from network
         with torch.no_grad():
-            _, style_activations = self.encoder(style_image)
+            style_activations = self.encoder(style_image)
 
         # Get the decoded image activations from network
-        gen_features, gen_activations = self.encoder(generated_image)
+        gen_activations = self.encoder(generated_image)
+        gen_features = gen_activations[-1]
 
         # Compute the cumulative value of style loss
         style_loss = 0
