@@ -43,8 +43,7 @@ class AdaIN(object):
                 self.norm = NormalizeLayer(normalize_mean, normalize_std)
 
                 vgg = list(models.vgg19(pretrained=True).to(device).eval().features)[:21]
-                # DEBUG
-                # pprint.pprint(vgg)
+                
                 # Get desired features from vgg
                 self.relu1 = nn.Sequential(*vgg[:2]) # ReLu1_1 output
                 self.relu2 = nn.Sequential(*vgg[2:7]) # ReLU2_1 output
