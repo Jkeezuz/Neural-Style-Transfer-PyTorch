@@ -1,18 +1,12 @@
-import pprint
-
-import torchvision
 from time import strftime, gmtime
 
 import torch.nn as nn
 import torchvision.models as models
 
-import copy
 import torch.optim as optim
 from torch.backends import cudnn
-from torch.utils.tensorboard import SummaryWriter
 
 from Layers.NormalizeLayer import NormalizeLayer
-from Layers.AdainStyleLayer import AdainStyleLayer
 
 from resources.utilities import *
 
@@ -35,28 +29,29 @@ class AdaIN(object):
 
     def build_encoder(self):
         """Builds an encoder that uses first 4 numbers of convolutional layers of VGG19"""
+
         class Encoder(nn.Module):
             """Vgg 19 up to ReLU4_1 modified to return intermediate results (activations)"""
+
             def __init__(self):
                 super(Encoder, self).__init__()
 
                 self.norm = NormalizeLayer(normalize_mean, normalize_std)
 
                 vgg = list(models.vgg19(pretrained=True).to(device).eval().features)[:21]
-                
+
                 # Get desired features from vgg
-                self.relu1 = nn.Sequential(*vgg[:2]) # ReLu1_1 output
-                self.relu2 = nn.Sequential(*vgg[2:7]) # ReLU2_1 output
-                self.relu3 = nn.Sequential(*vgg[7:12]) # ReLU3_1 output
-                self.relu4 = nn.Sequential(*vgg[12:21]) # ReLU4_1 output
+                self.relu1 = nn.Sequential(*vgg[:2])  # ReLu1_1 output
+                self.relu2 = nn.Sequential(*vgg[2:7])  # ReLU2_1 output
+                self.relu3 = nn.Sequential(*vgg[7:12])  # ReLU3_1 output
+                self.relu4 = nn.Sequential(*vgg[12:21])  # ReLU4_1 output
 
             def forward(self, x):
-
                 # Normalization
-                x_norm = self.norm(x)
+                x = self.norm(x)
 
                 # Forward pass
-                x1 = self.relu1(x_norm)
+                x1 = self.relu1(x)
                 x2 = self.relu2(x1)
                 x3 = self.relu3(x2)
                 x4 = self.relu4(x3)
@@ -106,35 +101,35 @@ class AdaIN(object):
 
     def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
-        with torch.no_grad():
-            # Pytorch shape - NxCxHxW
-            # Computing values across spatial dimensions
-            # Compute std of content_features
-            content_std = torch.std(content_features, [2, 3], keepdim=True)
-            # Compute mean of content_features
-            content_mean = torch.mean(content_features, [2, 3], keepdim=True)
-            # Compute std of style_features
-            style_std = torch.std(style_features, [2, 3], keepdim=True)
-            # Compute mean of style_features
-            style_mean = torch.mean(style_features, [2, 3], keepdim=True)
+        # with torch.no_grad():
+        # Pytorch shape - NxCxHxW
+        # Computing values across spatial dimensions
+        # Compute std of content_features
+        content_std = torch.std(content_features, [2, 3], keepdim=True)
+        # Compute mean of content_features
+        content_mean = torch.mean(content_features, [2, 3], keepdim=True)
+        # Compute std of style_features
+        style_std = torch.std(style_features, [2, 3], keepdim=True)
+        # Compute mean of style_features
+        style_mean = torch.mean(style_features, [2, 3], keepdim=True)
 
-            return style_std * ((content_features - content_mean)/content_std) + style_mean
+        return style_std * ((content_features - content_mean) / content_std) + style_mean
 
     def forward(self, style_image, content_image, alpha=1.0):
         with torch.no_grad():
             # Encode style and content image
-            style_features = self.encoder(style_image)[-1]
+            style_activations = self.encoder(style_image)
 
-            content_features = self.encoder(content_image)[-1]
+            content_encoding = self.encoder(content_image)[-1]
             # Compute AdaIN
-            adain_result = self.adain(style_features, content_features)
-            adain_result = alpha * adain_result + (1 - alpha) * content_features
+            adain_result = self.adain(style_activations[-1], content_encoding)
+            adain_result = alpha * adain_result + (1 - alpha) * content_encoding
 
         # Decode to image
         generated_image = self.decoder(adain_result)
 
         # return image and adain result
-        return generated_image, adain_result
+        return generated_image, adain_result, style_activations
 
     def compute_style_loss(self, style, generated):
         # Compute std and mean of input
@@ -144,16 +139,11 @@ class AdaIN(object):
         generated_std = torch.std(generated, [2, 3], keepdim=True)
         generated_mean = torch.mean(generated, [2, 3], keepdim=True)
         return F.mse_loss(style_mean, generated_mean) + \
-            F.mse_loss(style_std, generated_std)
+               F.mse_loss(style_std, generated_std)
 
-    def compute_loss(self, generated_image, style_image, adain_result):
-        # Get the style image activations from network
-        with torch.no_grad():
-            style_activations = self.encoder(style_image)
-
+    def compute_loss(self, generated_image, adain_result, style_activations):
         # Get the decoded image activations from network
         gen_activations = self.encoder(generated_image)
-        gen_features = gen_activations[-1]
 
         # Compute the cumulative value of style loss
         style_loss = 0
@@ -161,7 +151,7 @@ class AdaIN(object):
             style_loss += self.compute_style_loss(sa, da)
 
         # Content loss, L2 norm
-        content_loss = torch.dist(adain_result, gen_features)
+        content_loss = torch.dist(adain_result, gen_activations[-1], 2)
 
         return style_loss, content_loss
 
@@ -177,40 +167,8 @@ class AdaIN(object):
 
         style_losses = []
         content_losses = []
-
-        # TensorBoard visualization
-       #  writer = SummaryWriter()
-       #
-       #  sample = next(iter(dataloader))
-       #  content_image_test = sample['content'].to(device)
-       #  style_image_test = sample['style'].to(device)
-       #  show_tensor(content_image_test, "content", 1)
-       #  show_tensor(style_image_test, "style", 1)
-       #
-       #  # Logs for tensorboard
-       #  grid = torchvision.utils.make_grid(style_image_test)
-       #  grid2 = torchvision.utils.make_grid(content_image_test)
-       #
-       #  writer.add_image('style_image', grid, 0)
-       #  writer.add_image('content_image', grid2, 0)
-       #
-       #  style_feat = self.encoder(style_image_test)
-       #  content_feat = self.encoder(content_image_test)
-       #
-       #  adain = self.adain(style_feat, content_feat)
-       #
-       #
-       #  writer.add_graph(self.encoder, style_image_test)
-       # # writer.add_graph(self.encoder, content_image_test)
-       # # writer.add_graph(self.decoder, adain)
-       #
-       #  writer.flush()
-       #  writer.close()
-
-        # Set up scheduler
-
         for epoch in range(epochs):
-         #   adjust_learning_rate(opt, 1e-4, 5e-5, epoch)
+            # adjust_learning_rate(opt, 1e-4, 5e-5, epoch)
             for i_batch, sample in enumerate(dataloader):
 
                 content_image = sample['content'].to(device)
@@ -218,9 +176,9 @@ class AdaIN(object):
 
                 opt.zero_grad()
 
-                gen_image, adain = self.forward(style_image, content_image)
-                style_loss, content_loss = self.compute_loss(gen_image, style_image, adain)
-                style_loss = style_loss*style_weight
+                gen_image, adain, style_act = self.forward(style_image, content_image)
+                style_loss, content_loss = self.compute_loss(gen_image, adain, style_act)
+                style_loss = style_loss * style_weight
                 total_loss = style_loss + content_loss
 
                 total_loss.backward()
@@ -230,7 +188,7 @@ class AdaIN(object):
                 # Check network performance every x steps
                 if i_batch == 0:
                     with torch.no_grad():
-                        test, _ = self.forward(style_image, content_image)
+                        test, _, _ = self.forward(style_image, content_image)
                         show_tensor(content_image, "Content at epoch {0}".format(epoch), 1)
                         show_tensor(style_image, "Style at epoch {0}".format(epoch), 1)
                         show_tensor(test, "Style transfer at epoch {0}".format(epoch), 1)
@@ -242,8 +200,8 @@ class AdaIN(object):
                     style_losses.append(style_loss.item())
                     content_losses.append(content_loss.item())
                     plt.figure()
-                    plt.plot(range(epoch+1), style_losses, label="style loss")
-                    plt.plot(range(epoch+1), content_losses, label="content loss")
+                    plt.plot(range(epoch + 1), style_losses, label="style loss")
+                    plt.plot(range(epoch + 1), content_losses, label="content loss")
                     plt.legend()
                     plt.savefig('loss.png')
                     plt.close()
