@@ -117,19 +117,6 @@ class AdaIN(object):
         content_norm = ((content_features - content_mean) / (content_std + eps))
         result = style_std * content_norm + style_mean
 
-        if torch.any(torch.isnan(content_std)):
-            print("f")
-        if torch.any(torch.isnan(content_mean)):
-            print("f")
-        if torch.any(torch.isnan(style_std)):
-            print("f")
-        if torch.any(torch.isnan(style_mean)):
-            print("f")
-        if torch.any(torch.isnan(content_norm)):
-            print("f")
-        if torch.any(torch.isnan(result)):
-            print("f")
-
         return result
 
     def forward(self, style_image, content_image, alpha=1.0):
@@ -169,12 +156,7 @@ class AdaIN(object):
 
         # Content loss, L2 norm
         content_loss = torch.dist(adain_result, gen_activations[-1])
-        if torch.any(torch.isnan(content_loss)):
-            print("f")
-            if torch.any(torch.isnan(gen_activations[-1])):
-                print("f1")
-            if torch.any(torch.isnan(adain_result)):
-                print("f2")
+
         return style_loss, content_loss
 
     def train(self, dataloader, style_weight, epochs):
