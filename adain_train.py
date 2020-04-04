@@ -18,11 +18,6 @@ def rename(directory):
 
 # FOR TEST PURPOSES
 if __name__ == "__main__":
-    # DEBUG ONLY
-    # rename(CONTENT_PATH)
-    
-    style_layers_req = ["ReLu_1", "ReLu_2", "ReLu_3", "ReLu_4"]
-
     # TRAIN
     transformed_dataset = StyleTransferDataset(CONTENT_PATH, STYLE_PATH, transform=transforms.Compose([
                                                transforms.Resize(256),
@@ -31,7 +26,7 @@ if __name__ == "__main__":
     dataloader = DataLoader(transformed_dataset, batch_size=8,
                             shuffle=True, num_workers=4)
 
-    adain = AdaIN(4, style_layers_req)
+    adain = AdaIN()
 
     pprint.pprint(adain.encoder)
     pprint.pprint(adain.decoder)
@@ -40,8 +35,8 @@ if __name__ == "__main__":
     torch.save(adain.decoder.state_dict(), "decoder_random.pth")
 
     # Train with different style weights to see the difference
-    style_weights = [100, 1000, 10000]
+    style_weights = [10e2, 10e3, 10e4]
     for sw in style_weights:
-        adain.train(dataloader=dataloader, style_weight=sw, epochs=10)
+        adain.train(dataloader=dataloader, style_weight=sw, epochs=5)
         # Reset decoder to starting weights
         adain.decoder.load_state_dict(torch.load("decoder_random.pth"))
