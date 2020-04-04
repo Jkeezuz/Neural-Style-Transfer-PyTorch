@@ -125,9 +125,9 @@ class AdaIN(object):
             style_activations = self.encoder(style_image)
 
             content_encoding = self.encoder(content_image)[-1]
-        # Compute AdaIN
-        adain_result = self.adain(style_activations[-1], content_encoding)
-        adain_result = alpha * adain_result + (1 - alpha) * content_encoding
+            # Compute AdaIN
+            adain_result = self.adain(style_activations[-1], content_encoding)
+            adain_result = alpha * adain_result + (1 - alpha) * content_encoding
 
         # Decode to image
         generated_image = self.decoder(adain_result)
