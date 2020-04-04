@@ -38,7 +38,7 @@ class AdaIN(object):
 
                 self.norm = NormalizeLayer(normalize_mean, normalize_std)
 
-                vgg = list(models.vgg19(pretrained=True).to(device).eval().features)[:21]
+                vgg = list(models.vgg19(pretrained=True).eval().to(device).features)[:21]
 
                 # Get desired features from vgg
                 self.relu1 = nn.Sequential(*vgg[:2])  # ReLu1_1 output
@@ -101,6 +101,7 @@ class AdaIN(object):
 
     def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
+        eps = 1e-10
         # with torch.no_grad():
         # Pytorch shape - NxCxHxW
         # Computing values across spatial dimensions
@@ -113,7 +114,23 @@ class AdaIN(object):
         # Compute mean of style_features
         style_mean = torch.mean(style_features, [2, 3], keepdim=True)
 
-        return style_std * ((content_features - content_mean) / content_std) + style_mean
+        content_norm = ((content_features - content_mean) / (content_std + eps))
+        result = style_std * content_norm + style_mean
+
+        if torch.any(torch.isnan(content_std)):
+            print("f")
+        if torch.any(torch.isnan(content_mean)):
+            print("f")
+        if torch.any(torch.isnan(style_std)):
+            print("f")
+        if torch.any(torch.isnan(style_mean)):
+            print("f")
+        if torch.any(torch.isnan(content_norm)):
+            print("f")
+        if torch.any(torch.isnan(result)):
+            print("f")
+
+        return result
 
     def forward(self, style_image, content_image, alpha=1.0):
         with torch.no_grad():
@@ -121,9 +138,9 @@ class AdaIN(object):
             style_activations = self.encoder(style_image)
 
             content_encoding = self.encoder(content_image)[-1]
-            # Compute AdaIN
-            adain_result = self.adain(style_activations[-1], content_encoding)
-            adain_result = alpha * adain_result + (1 - alpha) * content_encoding
+        # Compute AdaIN
+        adain_result = self.adain(style_activations[-1], content_encoding)
+        adain_result = alpha * adain_result + (1 - alpha) * content_encoding
 
         # Decode to image
         generated_image = self.decoder(adain_result)
@@ -151,8 +168,13 @@ class AdaIN(object):
             style_loss += self.compute_style_loss(sa, da)
 
         # Content loss, L2 norm
-        content_loss = torch.dist(adain_result, gen_activations[-1], 2)
-
+        content_loss = torch.dist(adain_result, gen_activations[-1])
+        if torch.any(torch.isnan(content_loss)):
+            print("f")
+            if torch.any(torch.isnan(gen_activations[-1])):
+                print("f1")
+            if torch.any(torch.isnan(adain_result)):
+                print("f2")
         return style_loss, content_loss
 
     def train(self, dataloader, style_weight, epochs):
@@ -168,9 +190,9 @@ class AdaIN(object):
         style_losses = []
         content_losses = []
         for epoch in range(epochs):
-            # adjust_learning_rate(opt, 1e-4, 5e-5, epoch)
-            for i_batch, sample in enumerate(dataloader):
 
+            for i_batch, sample in enumerate(dataloader):
+                adjust_learning_rate(opt, 1e-4, 5e-5, i_batch)
                 content_image = sample['content'].to(device)
                 style_image = sample['style'].to(device)
 
