@@ -12,6 +12,8 @@ from resources.utilities import *
 
 import torch.nn.functional as F
 
+import os
+
 cudnn.benchmark = True
 cudnn.enabled = True
 
@@ -101,8 +103,6 @@ class AdaIN(object):
 
     def adain(self, style_features, content_features):
         """Based on section 5. of https://arxiv.org/pdf/1703.06868.pdf"""
-        eps = 1e-10
-        # with torch.no_grad():
         # Pytorch shape - NxCxHxW
         # Computing values across spatial dimensions
         # Compute std of content_features
@@ -114,6 +114,7 @@ class AdaIN(object):
         # Compute mean of style_features
         style_mean = torch.mean(style_features, [2, 3], keepdim=True)
 
+        eps = 1e-10
         content_norm = ((content_features - content_mean) / (content_std + eps))
         result = style_std * content_norm + style_mean
 
@@ -123,8 +124,8 @@ class AdaIN(object):
         with torch.no_grad():
             # Encode style and content image
             style_activations = self.encoder(style_image)
-
             content_encoding = self.encoder(content_image)[-1]
+
             # Compute AdaIN
             adain_result = self.adain(style_activations[-1], content_encoding)
             adain_result = alpha * adain_result + (1 - alpha) * content_encoding
@@ -139,9 +140,11 @@ class AdaIN(object):
         # Compute std and mean of input
         style_std = torch.std(style, [2, 3], keepdim=True)
         style_mean = torch.mean(style, [2, 3], keepdim=True)
+
         # Compute std and mean of target
         generated_std = torch.std(generated, [2, 3], keepdim=True)
         generated_mean = torch.mean(generated, [2, 3], keepdim=True)
+
         return F.mse_loss(style_mean, generated_mean) + \
                F.mse_loss(style_std, generated_std)
 
@@ -174,7 +177,7 @@ class AdaIN(object):
         for epoch in range(epochs):
 
             for i_batch, sample in enumerate(dataloader):
-                adjust_learning_rate(opt, 1e-4, 5e-5, i_batch)
+                # adjust_learning_rate(opt, 1e-4, 5e-5, i_batch)
                 content_image = sample['content'].to(device)
                 style_image = sample['style'].to(device)
 
@@ -193,9 +196,19 @@ class AdaIN(object):
                 if i_batch == 0:
                     with torch.no_grad():
                         test, _, _ = self.forward(style_image, content_image)
+
                         show_tensor(content_image, "Content at epoch {0}".format(epoch), 1)
+                        save_tensor(content_image[0], os.path.join(RESULTS_PATH, "SW_{0}".format(style_weight)),
+                                    "CNT_EP{0}".format(epoch, style_weight))
+
                         show_tensor(style_image, "Style at epoch {0}".format(epoch), 1)
+                        save_tensor(style_image[0], os.path.join(RESULTS_PATH, "SW_{0}".format(style_weight)),
+                                    "STL_EP{0}".format(epoch, style_weight))
+
                         show_tensor(test, "Style transfer at epoch {0}".format(epoch), 1)
+                        save_tensor(test[0], os.path.join(RESULTS_PATH, "SW_{0}".format(style_weight)),
+                                    "TRNSF_EP{0}".format(epoch, style_weight))
+
                     print("Epoch {0} at {1}:".format(epoch, strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                     print('Style Loss(w/ style weight) : {:4f} Content Loss: {:4f}'.format(
                         style_loss.item(), content_loss.item()))

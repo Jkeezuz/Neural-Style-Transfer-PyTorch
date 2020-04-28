@@ -14,6 +14,7 @@ from Layers.ContentLayer import ContentLayer
 from Layers.StyleLayer import StyleLayer
 
 from resources.constants import *
+from resources.utilities import *
 # -- CONSTANTS --
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -120,7 +121,7 @@ def get_optimizer(input_image):
 
 # 6. Write training function
 def style_transfer(nn_model, content_image, style_image, input_image, normalize_mean, normalize_std,
-                   content_layers_req, style_layers_req, num_steps=500, style_weight=100000, content_weight=1):
+                   content_layers_req, style_layers_req, num_steps=500, style_weight=400000, content_weight=1):
     """Runs the style transfer on input image"""
     # Get the rebuilded model and style and content layers
     model, content_layers, style_layers = rebuild_model(nn_model, content_image, style_image, normalize_mean,
@@ -163,6 +164,7 @@ def style_transfer(nn_model, content_image, style_image, input_image, normalize_
                 print('Style Loss : {:4f} Content Loss: {:4f}'.format(
                     style_score.item(), content_score.item()))
                 print()
+               # show_tensor(input_image, "run {}:".format(run))
             run[0] += 1
 
             return style_score + content_score
@@ -198,29 +200,33 @@ if __name__ == '__main__':
     std = [0.229, 0.224, 0.225]
 
     # Load the images as preprocessed tensors
-    content_name = "sydopera1"
-    style_name = "vcm"
-    content_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(content_name))
-    style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(style_name))
+    content_name = ["ogonek.jpg", "ogonek1.png", "ogonek2.jpg", "ogonek3.jpg", "ogonek4.jpg", "ogonek5.png",
+                    "jeżol.jpg", "jeżol1.jpg", "jeżol2.jpg", "jeżol3.jpg", "jeżol4.jpg",
+                    "jeżol5.jpg", "jeżol6.jpg"]
+    style_name = ["starrynight", "fajne", "forest_style", "vcm",  "art3"]
+    for cn in content_name:
+        for sn in style_name:
+            content_tensor = image_loader(IMAGES_PATH+cn)
+            style_tensor = image_loader(IMAGES_PATH+"{}.jpg".format(sn))
 
-    # Assert that they're same size
-    assert content_tensor.size() == style_tensor.size()
+            # Assert that they're same size
+            assert content_tensor.size() == style_tensor.size()
 
-    show_tensor(content_tensor, "Content")
-    save_tensor(content_tensor, content_name)
+            show_tensor(content_tensor, "Content")
+           # save_tensor(content_tensor, content_name)
 
-    show_tensor(style_tensor, "Style")
-    save_tensor(style_tensor, style_name)
+            show_tensor(style_tensor, "Style")
+           # save_tensor(style_tensor, style_name)
 
-    input_tensor = content_tensor.clone()
+            input_tensor = content_tensor.clone()
 
-    start_time = time.time()
+            start_time = time.time()
 
-    output = style_transfer(model, content_tensor, style_tensor, input_tensor,
-                            mean, std, content_layers_req, style_layers_req)
+            output = style_transfer(model, content_tensor, style_tensor, input_tensor,
+                                    mean, std, content_layers_req, style_layers_req, num_steps=300)
 
-    elapsed_time = time.time() - start_time
-    show_tensor(output, title="output")
-    save_tensor(output, "C-"+content_name+"S-"+style_name)
+            elapsed_time = time.time() - start_time
+            show_tensor(output, title="output")
+            save_tensor(output, "C-"+cn+"S-"+sn)
 
-    print(time.strftime("Elapsed time %Mm:%Ss", time.gmtime(elapsed_time)))
+            print(time.strftime("Elapsed time %Mm:%Ss", time.gmtime(elapsed_time)))

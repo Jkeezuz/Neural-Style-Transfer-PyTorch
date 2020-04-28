@@ -22,7 +22,7 @@ def image_loader(image_name):
         transforms.Resize(imsize),
         transforms.ToTensor()])
     # Load the image from the disk
-    image = Image.open(image_name)
+    image = Image.open(image_name).convert("RGB")
     # Add batch dimension of 1 at dimension 0 to
     # satisfy pytorch's requirements of dimensions
     image = loader(image).unsqueeze(0)
@@ -71,10 +71,10 @@ def show_tensor(tensor, title=None, num=None):
 
         plt.pause(0.001)
 
-def save_tensor(tensor, title="NONAME"):
+def save_tensor(tensor, path, title="NONAME"):
     """
     Helper function to save pytorch tensor as jpg image.
     """
     image = to_image(tensor)
 
-    image.save(RESULTS_PATH+"{}.jpg".format(title))
+    image.save(os.path.join(path, "{}.jpg".format(title)))
