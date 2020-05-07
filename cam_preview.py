@@ -19,6 +19,7 @@ cam = cv2.VideoCapture(0)
 
 cv2.namedWindow("raw")
 cv2.namedWindow("adain")
+cv2.namedWindow("style")
 
 img_counter = 0
 
@@ -29,20 +30,38 @@ frame_transform = transforms.Compose([
 adain = AdaIN()
 adain.decoder.eval()
 adain.encoder.eval()
-adain.load_save("decoder.pth")
-style_name = "1.jpg"
+adain.load_save()
+style_name = "2.jpg"
 style_image = Image.open(style_name).convert('RGB')
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 style_image = frame_transform(style_image).unsqueeze(0).detach().to(device)
+
+######### TRACKBAR
+alpha = 1
+
+def on_trackbar(val):
+    global alpha 
+    alpha = val / alpha_slider_max
+    print(alpha)
+    
+alpha_slider_max = 100
+trackbar_name = 'Alpha x %d' % alpha_slider_max
+cv2.createTrackbar(trackbar_name, "adain" , 0, alpha_slider_max, on_trackbar)
+############ 
+
+style_frame = style_image.squeeze(0).permute(1,2,0).cpu().detach().numpy()
+cv2.imshow("style", style_frame)
+
 while True:
     ret, frame = cam.read()
     tframe = frame_transform(Image.fromarray(frame)).unsqueeze(0).detach()
 
-    adain_frame = adain.forward(style_image=style_image, content_image=tframe.to(device))[0]
+    adain_frame = adain.forward(style_image=style_image, content_image=tframe.to(device), alpha=alpha)[0]
     adain_frame = adain_frame.squeeze(0).permute(1,2,0).cpu().detach().numpy()
 
     cv2.imshow("raw", frame)
     cv2.imshow("adain", adain_frame)
+
     
     if not ret:
         break
